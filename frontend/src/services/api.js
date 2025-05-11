@@ -1,7 +1,11 @@
 import axios from "axios";
 
-const API_BASE_URL =
-  import.meta.env.VITE_API_BASE_URL || "http://localhost:5003";
+// In production (Vercel), use the production API URL
+// In development, use the localhost URL
+const isProd = import.meta.env.PROD;
+const API_BASE_URL = isProd
+  ? import.meta.env.VITE_PROD_API_BASE_URL || "https://crmspace-new.vercel.app"
+  : import.meta.env.VITE_API_BASE_URL || "http://localhost:5003";
 
 const api = axios.create({
   baseURL: API_BASE_URL,

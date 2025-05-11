@@ -1,5 +1,4 @@
 import React, { useState, useEffect } from "react";
-import axios from "axios";
 import { useLocation } from "react-router-dom";
 import { Button } from "../components/ui/button";
 import {
@@ -11,6 +10,13 @@ import {
   CardDescription,
 } from "../components/ui/card";
 import { PlusCircle, ChevronDown, ChevronUp } from "lucide-react";
+import { apiGet, apiPost } from "../services/api"; // Import API service
+import api from "../services/api";
+
+// Get the API base URL for image sources
+const API_BASE_URL = import.meta.env.PROD
+  ? import.meta.env.VITE_PROD_API_BASE_URL || "https://crmspace-new.vercel.app"
+  : import.meta.env.VITE_API_BASE_URL || "http://localhost:5003";
 
 export default function CampaignsPage() {
   const location = useLocation();
@@ -52,18 +58,14 @@ export default function CampaignsPage() {
   useEffect(() => {
     const fetchData = async () => {
       try {
-        const [campaignsRes, segmentsRes] = await Promise.all([
-          axios.get("http://localhost:5003/api/campaigns", {
-            withCredentials: true,
-          }),
-          axios.get("http://localhost:5003/api/segments", {
-            withCredentials: true,
-          }),
+        const [campaignsData, segmentsData] = await Promise.all([
+          apiGet("/api/campaigns"),
+          apiGet("/api/segments"),
         ]);
 
-        console.log("Fetched campaigns:", campaignsRes.data);
-        setCampaigns(campaignsRes.data);
-        setSegments(segmentsRes.data);
+        console.log("Fetched campaigns:", campaignsData);
+        setCampaigns(campaignsData);
+        setSegments(segmentsData);
         setLoading(false);
       } catch (err) {
         setError(err.message);
@@ -77,12 +79,11 @@ export default function CampaignsPage() {
   const handleCreateCampaign = async (e) => {
     e.preventDefault();
     try {
-      const response = await axios.post(
-        "http://localhost:5003/api/campaigns",
-        { ...newCampaign, aiImage },
-        { withCredentials: true }
-      );
-      setCampaigns([...campaigns, response.data.campaign]);
+      const response = await apiPost("/api/campaigns", {
+        ...newCampaign,
+        aiImage,
+      });
+      setCampaigns([...campaigns, response.campaign]);
       setShowCreateForm(false);
       setNewCampaign({ segmentId: "", messageText: "" });
       setAiImage(null);
@@ -115,20 +116,10 @@ export default function CampaignsPage() {
 
     try {
       // Fetch both in parallel
-      const [statsResponse, logsResponse] = await Promise.all([
-        axios.get(`http://localhost:5003/api/campaigns/${campaignId}/stats`, {
-          withCredentials: true,
-        }),
-        axios.get(
-          `http://localhost:5003/api/communication-logs/campaign/${campaignId}`,
-          {
-            withCredentials: true,
-          }
-        ),
+      const [statsData, logsData] = await Promise.all([
+        apiGet(`/api/campaigns/${campaignId}/stats`),
+        apiGet(`/api/communication-logs/campaign/${campaignId}`),
       ]);
-
-      const statsData = statsResponse.data;
-      const logsData = logsResponse.data;
 
       console.log("Successfully fetched campaign data:", {
         stats: statsData,
@@ -201,13 +192,10 @@ export default function CampaignsPage() {
       console.log("Calling AI endpoint with stats:", enrichedStats);
 
       // Call the AI endpoint for summary
-      const summaryResponse = await axios.post(
-        "http://localhost:5003/api/ai/campaign-summary",
-        { stats: enrichedStats },
-        { withCredentials: true }
-      );
-
-      const summary = summaryResponse.data.summary;
+      const summaryResponse = await apiPost("/api/ai/campaign-summary", {
+        stats: enrichedStats,
+      });
+      const summary = summaryResponse.summary;
       console.log("Received AI summary:", summary);
 
       // Update the campaign summaries state with function form
@@ -249,12 +237,10 @@ export default function CampaignsPage() {
         setAiLoading(false);
         return;
       }
-      const res = await axios.post(
-        "http://localhost:5003/api/ai/campaign-message-from-name",
-        { prompt: campaignName },
-        { withCredentials: true }
-      );
-      setNewCampaign((prev) => ({ ...prev, messageText: res.data.message }));
+      const res = await apiPost("/api/ai/campaign-message-from-name", {
+        prompt: campaignName,
+      });
+      setNewCampaign((prev) => ({ ...prev, messageText: res.message }));
     } catch (err) {
       setError("AI message generation failed");
     } finally {
@@ -272,12 +258,10 @@ export default function CampaignsPage() {
     }
     setAiImageLoading(true);
     try {
-      const res = await axios.post(
-        "http://localhost:5003/api/ai/campaign-image",
-        { prompt: newCampaign.messageText },
-        { withCredentials: true }
-      );
-      setAiImage(res.data.image);
+      const res = await apiPost("/api/ai/campaign-image", {
+        prompt: newCampaign.messageText,
+      });
+      setAiImage(res.image);
     } catch (err) {
       setError("AI image generation failed");
     } finally {
@@ -462,7 +446,7 @@ export default function CampaignsPage() {
                       <p className="font-medium">Campaign Image:</p>
                       <div className="mt-2">
                         <img
-                          src={`http://localhost:5003${campaign.aiImage}`}
+                          src={`${API_BASE_URL}${campaign.aiImage}`}
                           alt="Campaign AI"
                           className="max-w-[300px] max-h-[200px] rounded border border-gray-200 shadow-md"
                         />

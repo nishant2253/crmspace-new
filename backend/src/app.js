@@ -10,31 +10,45 @@ import router from "./routes/index.js";
 import { initPassport } from "./services/passport.js";
 import path from "path";
 
-// Import test environment variables
-import "../test-env.js";
+// Import test environment variables in development only
+if (process.env.NODE_ENV !== "production") {
+  import("../test-env.js").catch((err) =>
+    console.error("Test env import error:", err)
+  );
+}
 
 // Load env vars
 dotenv.config();
 
 const app = express();
+const isProduction = process.env.NODE_ENV === "production";
 
 // Middleware
 app.use(express.json());
 app.use(
   cors({
-    origin: "http://localhost:5173",
+    origin:
+      process.env.FRONTEND_URL ||
+      (isProduction
+        ? "https://crmspace-new.vercel.app"
+        : "http://localhost:5173"),
     credentials: true,
     methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
   })
 );
-app.use(morgan("dev"));
+app.use(morgan(isProduction ? "combined" : "dev"));
 
-// Session
+// Session configuration
 app.use(
   session({
     secret: process.env.SESSION_SECRET || "secret",
     resave: false,
     saveUninitialized: false,
+    cookie: {
+      secure: isProduction, // Use secure cookies in production
+      httpOnly: true,
+      sameSite: isProduction ? "none" : "lax", // For cross-site cookies in production
+    },
   })
 );
 
@@ -44,26 +58,32 @@ app.use(passport.initialize());
 app.use(passport.session());
 
 // MongoDB connection
+const mongoUri = process.env.MONGO_URI || "mongodb://localhost:27017/crm";
 mongoose
-  .connect("mongodb://localhost:27017/crm", {
+  .connect(mongoUri, {
     useNewUrlParser: true,
     useUnifiedTopology: true,
   })
-  .then(() => console.log("MongoDB connected to 'crm' database"))
+  .then(() => console.log(`MongoDB connected to ${mongoUri}`))
   .catch((err) => console.error("MongoDB error:", err));
 
 // Redis client
-const redisClient = createClient({
-  url: `redis://${process.env.REDIS_HOST}:${process.env.REDIS_PORT}`,
-});
-redisClient
-  .connect()
-  .then(() => console.log("Redis connected"))
-  .catch((err) => console.error("Redis error:", err));
+let redisClient;
+try {
+  redisClient = createClient({
+    url: `redis://${process.env.REDIS_HOST}:${process.env.REDIS_PORT}`,
+  });
+  redisClient
+    .connect()
+    .then(() => console.log("Redis connected"))
+    .catch((err) => console.error("Redis error:", err));
+} catch (err) {
+  console.error("Redis initialization error:", err);
+}
 
 // Placeholder for routes
 app.get("/", (req, res) => {
-  res.send("Mini CRM Platform API");
+  res.send("CRMspace Platform API");
 });
 
 // Serve uploaded campaign images
@@ -79,43 +99,49 @@ if (process.env.NODE_ENV !== "test") {
   app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
 }
 
-// Add shutdown handler to clear database on exit
-process.on("SIGINT", async () => {
-  console.log("Server shutting down, clearing database and Redis streams...");
-  try {
-    // Clear Redis streams
+// Add shutdown handler to clear database on exit (development only)
+if (!isProduction) {
+  process.on("SIGINT", async () => {
+    console.log("Server shutting down, clearing database and Redis streams...");
     try {
-      const streamKeys = await redisClient.keys("stream:*");
-      if (streamKeys && streamKeys.length > 0) {
-        for (const key of streamKeys) {
-          await redisClient.del(key);
-          console.log(`Cleared Redis stream: ${key}`);
+      // Clear Redis streams
+      if (redisClient) {
+        try {
+          const streamKeys = await redisClient.keys("stream:*");
+          if (streamKeys && streamKeys.length > 0) {
+            for (const key of streamKeys) {
+              await redisClient.del(key);
+              console.log(`Cleared Redis stream: ${key}`);
+            }
+          }
+          console.log("Redis streams cleared successfully");
+        } catch (redisErr) {
+          console.error("Error clearing Redis streams:", redisErr);
         }
       }
-      console.log("Redis streams cleared successfully");
-    } catch (redisErr) {
-      console.error("Error clearing Redis streams:", redisErr);
-    }
 
-    // Get all collections and drop them
-    const collections = Object.keys(mongoose.connection.collections);
-    for (const collectionName of collections) {
-      const collection = mongoose.connection.collections[collectionName];
-      await collection.drop();
-    }
-    console.log("Database cleared successfully");
-  } catch (err) {
-    console.error("Error clearing database:", err);
-  } finally {
-    // Close Redis connection
-    await redisClient.quit();
-    console.log("Redis connection closed");
+      // Get all collections and drop them
+      const collections = Object.keys(mongoose.connection.collections);
+      for (const collectionName of collections) {
+        const collection = mongoose.connection.collections[collectionName];
+        await collection.drop();
+      }
+      console.log("Database cleared successfully");
+    } catch (err) {
+      console.error("Error clearing database:", err);
+    } finally {
+      // Close Redis connection
+      if (redisClient) {
+        await redisClient.quit();
+        console.log("Redis connection closed");
+      }
 
-    // Close MongoDB connection using await instead of callback
-    await mongoose.connection.close();
-    console.log("MongoDB connection closed");
-    process.exit(0);
-  }
-});
+      // Close MongoDB connection
+      await mongoose.connection.close();
+      console.log("MongoDB connection closed");
+      process.exit(0);
+    }
+  });
+}
 
 export default app;

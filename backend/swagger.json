@@ -1,0 +1,296 @@
+{
+  "openapi": "3.0.0",
+  "info": {
+    "title": "Mini CRM Platform API",
+    "version": "1.0.0",
+    "description": "API documentation for the Mini CRM Platform."
+  },
+  "servers": [
+    {
+      "url": "http://localhost:5003"
+    }
+  ],
+  "paths": {
+    "/api/customers": {
+      "post": {
+        "summary": "Ingest customer data",
+        "security": [{ "cookieAuth": [] }],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "name": { "type": "string" },
+                  "email": { "type": "string" },
+                  "totalSpend": { "type": "number" },
+                  "lastVisit": { "type": "string", "format": "date-time" },
+                  "lastOrderDate": { "type": "string", "format": "date-time" },
+                  "visitCount": { "type": "integer" }
+                },
+                "required": ["name", "email"]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": { "description": "Customer data queued" },
+          "401": { "description": "Unauthorized" }
+        }
+      }
+    },
+    "/api/orders": {
+      "post": {
+        "summary": "Ingest order data",
+        "security": [{ "cookieAuth": [] }],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "customerId": { "type": "string" },
+                  "orderAmount": { "type": "number" },
+                  "createdAt": { "type": "string", "format": "date-time" }
+                },
+                "required": ["customerId", "orderAmount"]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": { "description": "Order data queued" },
+          "401": { "description": "Unauthorized" }
+        }
+      }
+    },
+    "/api/segments": {
+      "post": {
+        "summary": "Create segment rule",
+        "security": [{ "cookieAuth": [] }],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "name": { "type": "string" },
+                  "rulesJSON": { "type": "object" }
+                },
+                "required": ["name", "rulesJSON"]
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": { "description": "Segment created" },
+          "401": { "description": "Unauthorized" }
+        }
+      },
+      "get": {
+        "summary": "List segment rules",
+        "security": [{ "cookieAuth": [] }],
+        "responses": {
+          "200": { "description": "List of segments" },
+          "401": { "description": "Unauthorized" }
+        }
+      }
+    },
+    "/api/segments/preview": {
+      "post": {
+        "summary": "Preview segment audience",
+        "security": [{ "cookieAuth": [] }],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": { "rulesJSON": { "type": "object" } },
+                "required": ["rulesJSON"]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": { "description": "Audience preview" },
+          "401": { "description": "Unauthorized" }
+        }
+      }
+    },
+    "/api/campaigns": {
+      "post": {
+        "summary": "Create campaign",
+        "security": [{ "cookieAuth": [] }],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "segmentId": { "type": "string" },
+                  "messageText": { "type": "string" }
+                },
+                "required": ["segmentId", "messageText"]
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": { "description": "Campaign created" },
+          "401": { "description": "Unauthorized" }
+        }
+      },
+      "get": {
+        "summary": "List campaigns",
+        "security": [{ "cookieAuth": [] }],
+        "responses": {
+          "200": { "description": "List of campaigns" },
+          "401": { "description": "Unauthorized" }
+        }
+      }
+    },
+    "/api/campaigns/{id}/stats": {
+      "get": {
+        "summary": "Get campaign stats",
+        "security": [{ "cookieAuth": [] }],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string" }
+          }
+        ],
+        "responses": {
+          "200": { "description": "Campaign stats" },
+          "401": { "description": "Unauthorized" },
+          "404": { "description": "Not found" }
+        }
+      }
+    },
+    "/api/communication-logs/campaign/{campaignId}": {
+      "get": {
+        "summary": "List communication logs for a campaign",
+        "security": [{ "cookieAuth": [] }],
+        "parameters": [
+          {
+            "name": "campaignId",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string" }
+          },
+          {
+            "name": "status",
+            "in": "query",
+            "schema": { "type": "string", "enum": ["SENT", "FAILED"] }
+          }
+        ],
+        "responses": {
+          "200": { "description": "List of logs" },
+          "401": { "description": "Unauthorized" }
+        }
+      }
+    },
+    "/api/delivery-receipt": {
+      "post": {
+        "summary": "Delivery receipt callback (simulated vendor)",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "oneOf": [
+                  {
+                    "type": "object",
+                    "properties": {
+                      "campaignId": { "type": "string" },
+                      "customerId": { "type": "string" },
+                      "status": { "type": "string", "enum": ["SENT", "FAILED"] }
+                    },
+                    "required": ["campaignId", "customerId", "status"]
+                  },
+                  {
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "campaignId": { "type": "string" },
+                        "customerId": { "type": "string" },
+                        "status": {
+                          "type": "string",
+                          "enum": ["SENT", "FAILED"]
+                        }
+                      },
+                      "required": ["campaignId", "customerId", "status"]
+                    }
+                  }
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": { "description": "Receipt processed" }
+        }
+      }
+    },
+    "/api/ai/segment-rules-from-text": {
+      "post": {
+        "summary": "AI: Natural language to segment rules",
+        "security": [{ "cookieAuth": [] }],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": { "prompt": { "type": "string" } },
+                "required": ["prompt"]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": { "description": "Rules JSON" },
+          "401": { "description": "Unauthorized" }
+        }
+      }
+    },
+    "/api/ai/campaign-summary": {
+      "post": {
+        "summary": "AI: Campaign stats to summary",
+        "security": [{ "cookieAuth": [] }],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": { "stats": { "type": "object" } },
+                "required": ["stats"]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": { "description": "Summary" },
+          "401": { "description": "Unauthorized" }
+        }
+      }
+    }
+  },
+  "components": {
+    "securitySchemes": {
+      "cookieAuth": {
+        "type": "apiKey",
+        "in": "cookie",
+        "name": "connect.sid"
+      }
+    }
+  }
+}

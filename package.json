@@ -1,0 +1,15 @@
+{
+  "dependencies": {
+    "openai": "^4.98.0",
+    "uuid": "^11.1.0"
+  },
+  "scripts": {
+    "start": "concurrently \"cd backend && npm run dev\" \"cd frontend && npm run dev\" \"node backend/src/service/consumerstream.js\"",
+    "stop": "node backend/src/utils/clearDatabase.js",
+    "reset:redis": "node backend/src/service/resetStreams.js",
+    "reset:all": "concurrently \"node backend/src/utils/clearDatabase.js\" \"node backend/src/service/resetStreams.js\""
+  },
+  "devDependencies": {
+    "concurrently": "^8.2.2"
+  }
+}

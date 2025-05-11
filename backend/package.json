@@ -1,0 +1,34 @@
+{
+  "name": "crm-backend",
+  "version": "1.0.0",
+  "type": "module",
+  "main": "src/app.js",
+  "scripts": {
+    "start": "node src/app.js",
+    "dev": "nodemon src/app.js",
+    "reset:db": "node src/utils/clearDatabase.js",
+    "reset:redis": "node src/service/resetStreams.js",
+    "reset:consumer-groups": "node src/service/resetConsumerGroups.js",
+    "reset:all": "concurrently \"node src/utils/clearDatabase.js\" \"node src/service/resetStreams.js\" \"node src/service/resetConsumerGroups.js\""
+  },
+  "dependencies": {
+    "@azure-rest/ai-inference": "^1.0.0-beta.6",
+    "@azure/core-auth": "^1.9.0",
+    "axios": "^1.9.0",
+    "cors": "^2.8.5",
+    "dotenv": "^16.3.1",
+    "express": "^4.18.2",
+    "express-session": "^1.17.3",
+    "ioredis": "^5.3.2",
+    "mongoose": "^7.6.3",
+    "morgan": "^1.10.0",
+    "openai": "^4.30.0",
+    "passport": "^0.7.0",
+    "passport-google-oauth20": "^2.0.0",
+    "redis": "^4.6.7"
+  },
+  "devDependencies": {
+    "concurrently": "^8.2.2",
+    "nodemon": "^3.0.3"
+  }
+}

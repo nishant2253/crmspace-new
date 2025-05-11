@@ -1,0 +1,56 @@
+[
+  {
+    "_id": {
+      "$oid": "681bc032c439a84629e794c4"
+    },
+    "userId": {
+      "$oid": "681ba7248b20e8efea9e19d4"
+    },
+    "name": "Order Control Test",
+    "rulesJSON": {
+      "rules": [
+        {
+          "field": "totalSpend",
+          "operator": ">",
+          "value": 5000
+        }
+      ],
+      "condition": "AND"
+    },
+    "audienceSize": 2,
+    "createdAt": {
+      "$date": "2025-05-07T20:18:58.820Z"
+    },
+    "updatedAt": {
+      "$date": "2025-05-07T20:18:58.820Z"
+    },
+    "__v": 0
+  },
+  {
+    "_id": {
+      "$oid": "681bc4e5c439a84629e794e7"
+    },
+    "userId": {
+      "$oid": "681ba7248b20e8efea9e19d4"
+    },
+    "name": "High Value Customers",
+    "rulesJSON": {
+      "name": "High Value Customers",
+      "rules": [
+        {
+          "field": "totalSpend",
+          "operator": ">",
+          "value": 10000
+        }
+      ]
+    },
+    "audienceSize": 1,
+    "createdAt": {
+      "$date": "2025-05-07T20:39:01.816Z"
+    },
+    "updatedAt": {
+      "$date": "2025-05-07T20:39:01.816Z"
+    },
+    "__v": 0
+  }
+]

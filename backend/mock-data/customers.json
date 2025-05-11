@@ -1,0 +1,18 @@
+[
+  {
+    "name": "Bob Singh",
+    "email": "bob@example.com",
+    "totalSpend": 3500,
+    "lastVisit": "2024-04-15T09:00:00Z",
+    "lastOrderDate": "2024-04-10T14:00:00Z",
+    "visitCount": 2
+  },
+  {
+    "name": "Carol Patel",
+    "email": "carol@example.com",
+    "totalSpend": 8000,
+    "lastVisit": "2024-03-20T11:00:00Z",
+    "lastOrderDate": "2024-03-18T16:00:00Z",
+    "visitCount": 4
+  }
+]

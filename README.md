@@ -25,6 +25,12 @@ This CRM platform enables:
 
 ---
 
+##  Demo Video
+
+```https://youtu.be/x__81ZHFtvc```
+
+---
+
 ## 🗃 Project Structure
 
 ```

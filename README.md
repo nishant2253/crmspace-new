@@ -27,9 +27,10 @@ This CRM platform enables:
 
 ##  Demo Video Link
 
-bash ```
+```bash
 
-https://youtu.be/x__81ZHFtvc```
+https://youtu.be/x__81ZHFtvc
+```
 
 ---
 

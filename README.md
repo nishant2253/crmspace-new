@@ -2,7 +2,7 @@
 
 A full-featured CRM platform for customer segmentation, campaign management, and AI-powered insights.
 
----n
+---
 
 ## 🧩 Overview
 
@@ -25,7 +25,7 @@ This CRM platform enables:
 
 ---
 
-##  Demo Video Link
+## Demo Video Link
 
 ```bash
 

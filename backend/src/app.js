@@ -9,6 +9,7 @@ import { createClient } from "redis";
 import router from "./routes/index.js";
 import { initPassport } from "./services/passport.js";
 import path from "path";
+import MongoStore from "connect-mongo";
 
 // Import test environment variables in development only
 if (process.env.NODE_ENV !== "production") {
@@ -111,6 +112,12 @@ app.use(
       sameSite: isProduction ? "none" : "lax", // For cross-site cookies in production
       maxAge: 24 * 60 * 60 * 1000, // 1 day
     },
+    store: MongoStore.create({
+      mongoUrl: process.env.MONGO_URI || "mongodb://localhost:27017/crm",
+      ttl: 14 * 24 * 60 * 60, // = 14 days. Default
+      autoRemove: "native", // Remove expired sessions
+      touchAfter: 24 * 3600, // Only update the session once per 24 hours unless data changes
+    }),
   })
 );
 

@@ -54,9 +54,9 @@ router.get(
         }
 
         console.log("User authenticated successfully:", user.email);
-        // Redirect to frontend after login
+        // Redirect to frontend after login with a success parameter
         return res.redirect(
-          process.env.FRONTEND_URL || "http://localhost:5173"
+          `${process.env.FRONTEND_URL || "http://localhost:5173"}?auth=success`
         );
       });
     })(req, res, next);

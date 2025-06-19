@@ -38,60 +38,34 @@ const allowedOrigins = [
 app.use(express.json({ limit: "50mb" }));
 app.use(express.urlencoded({ extended: true, limit: "50mb" }));
 
-// Simple CORS middleware that works with all browsers
-app.use((req, res, next) => {
-  const origin = req.headers.origin;
+// CORS configuration
+const frontendUrl = process.env.FRONTEND_URL || "http://localhost:5173";
+console.log(`Frontend URL: ${frontendUrl}`);
 
-  // Log the origin for debugging
-  console.log(`Request from origin: ${origin}`);
-
-  // Check if the origin is allowed
-  if (allowedOrigins.includes(origin) || !origin) {
-    res.setHeader("Access-Control-Allow-Origin", origin || "*");
-    res.setHeader("Access-Control-Allow-Credentials", "true");
-    res.setHeader(
-      "Access-Control-Allow-Methods",
-      "GET, POST, PUT, DELETE, OPTIONS"
-    );
-    res.setHeader(
-      "Access-Control-Allow-Headers",
-      "Origin, X-Requested-With, Content-Type, Accept, Authorization"
-    );
-  }
-
-  // Handle preflight requests
-  if (req.method === "OPTIONS") {
-    return res.status(200).end();
-  }
-
-  next();
-});
-
-// Original CORS middleware for backward compatibility
 app.use(
   cors({
-    origin: function (origin, callback) {
-      // Allow requests with no origin (like mobile apps or curl requests)
-      if (!origin) return callback(null, true);
+    origin: (origin, callback) => {
+      const allowedOrigins = [
+        frontendUrl,
+        "https://crmspacefrontend.vercel.app",
+        "http://localhost:5173",
+      ];
 
-      if (allowedOrigins.indexOf(origin) !== -1) {
-        callback(null, true);
+      console.log("Request origin:", origin);
+
+      if (!origin || allowedOrigins.includes(origin)) {
+        // Allow requests with no origin (like mobile apps, curl, postman)
+        // Or from any of the allowed origins
+        callback(null, origin);
       } else {
-        console.log("Blocked by CORS: ", origin);
-        // Instead of throwing error, just log and allow
-        callback(null, true);
+        callback(new Error(`Origin ${origin} not allowed by CORS`));
       }
     },
-    credentials: true,
+    credentials: true, // Allow credentials (cookies)
     methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
-    allowedHeaders: [
-      "Content-Type",
-      "Authorization",
-      "X-Requested-With",
-      "Accept",
-      "Origin",
-    ],
-    exposedHeaders: ["Access-Control-Allow-Origin"],
+    allowedHeaders: ["Content-Type", "Authorization"],
+    exposedHeaders: ["Content-Length", "X-Foo", "X-Bar"],
+    maxAge: 86400, // Cache preflight requests for 24 hours
   })
 );
 
@@ -106,17 +80,22 @@ app.use(
     secret: process.env.SESSION_SECRET || "secret",
     resave: false,
     saveUninitialized: false,
+    proxy: true, // Required for Vercel serverless to trust the proxy
     cookie: {
       secure: isProduction, // Use secure cookies in production
       httpOnly: true,
       sameSite: isProduction ? "none" : "lax", // For cross-site cookies in production
       maxAge: 24 * 60 * 60 * 1000, // 1 day
+      path: "/",
     },
     store: MongoStore.create({
       mongoUrl: process.env.MONGO_URI || "mongodb://localhost:27017/crm",
       ttl: 14 * 24 * 60 * 60, // = 14 days. Default
       autoRemove: "native", // Remove expired sessions
       touchAfter: 24 * 3600, // Only update the session once per 24 hours unless data changes
+      crypto: {
+        secret: process.env.SESSION_SECRET || "secret",
+      },
     }),
   })
 );

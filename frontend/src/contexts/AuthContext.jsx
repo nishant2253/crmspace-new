@@ -1,87 +1,116 @@
-import React, { createContext, useContext, useEffect, useState } from "react";
-import { getCurrentUser, logout as apiLogout } from "../services/api";
-import { useNavigate, useLocation } from "react-router-dom";
+import React, { createContext, useContext, useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
+import api from "../services/api";
 
 const AuthContext = createContext();
 
-export function AuthProvider({ children }) {
+export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [authInitialized, setAuthInitialized] = useState(false);
   const navigate = useNavigate();
-  const location = useLocation();
 
-  const checkAuthStatus = async () => {
+  // Handle URL parameters for OAuth callback
+  useEffect(() => {
+    const urlParams = new URLSearchParams(window.location.search);
+    const authSuccess = urlParams.get("auth");
+    const authError = urlParams.get("error");
+    const errorMsg = urlParams.get("message");
+
+    if (authSuccess === "success") {
+      console.log("Auth success detected in URL");
+      // Remove the query parameter and reload
+      window.history.replaceState({}, document.title, window.location.pathname);
+      checkAuth();
+    }
+
+    if (authError) {
+      console.error("Auth error detected in URL:", authError, errorMsg || "");
+      setError(`Authentication failed: ${errorMsg || authError}`);
+      setLoading(false);
+      setAuthInitialized(true);
+    }
+  }, []);
+
+  // Check authentication status
+  const checkAuth = async () => {
+    console.log("Checking authentication status...");
     setLoading(true);
+    setError(null);
+
     try {
-      console.log("Checking authentication status...");
-      const userData = await getCurrentUser();
-      console.log("User authenticated:", userData);
-      setUser(userData);
-      setError(null);
-    } catch (err) {
-      console.log("Authentication failed:", err.message);
+      const response = await api.get("/auth/me");
+      console.log("Auth check response:", response.data);
+      setUser(response.data);
+      setAuthInitialized(true);
+      return response.data;
+    } catch (error) {
+      console.error(
+        "Failed to get current user:",
+        error.response?.status,
+        error.response?.data
+      );
       setUser(null);
-      if (err.response?.status === 401) {
-        setError("Not authenticated");
-      } else {
-        setError(`Error: ${err.message}`);
+      if (error.response?.status !== 401) {
+        // Only set error for non-401 responses, as 401 is expected for non-authenticated users
+        setError(`Authentication failed: ${error.message}`);
       }
+      setAuthInitialized(true);
+      return null;
     } finally {
       setLoading(false);
     }
   };
 
-  // Fetch user on mount
+  // Initialize authentication on page load
   useEffect(() => {
-    checkAuthStatus();
+    checkAuth();
+
+    // Set up an interval to periodically check auth status (useful for session expiry)
+    const intervalId = setInterval(checkAuth, 5 * 60 * 1000); // Every 5 minutes
+
+    return () => clearInterval(intervalId);
   }, []);
 
-  // Check for authentication after redirects
-  useEffect(() => {
-    const params = new URLSearchParams(location.search);
-    const authSuccess = params.get("auth") === "success";
+  // Login by redirecting to Google OAuth
+  const login = () => {
+    console.log("Initiating login...");
+    window.location.href = `${api.defaults.baseURL}/auth/google`;
+  };
 
-    if (authSuccess) {
-      checkAuthStatus();
-      // Clear the URL parameters
-      navigate(location.pathname, { replace: true });
-    }
-  }, [location.search]);
-
-  // Improved logout: clear user, redirect, handle errors
+  // Logout user
   const logout = async () => {
     try {
-      await apiLogout();
-    } catch (err) {
-      console.error("Logout error:", err);
-      // Ignore network errors on logout
-    } finally {
+      await api.post("/auth/logout");
       setUser(null);
-      navigate("/get-started", { replace: true });
+      navigate("/login");
+    } catch (error) {
+      console.error("Logout error:", error);
+      // Force logout even if API call fails
+      setUser(null);
+      navigate("/login");
     }
   };
 
-  // Handle session expiration: if user is null and not loading, redirect to login
-  // But don't redirect if on the get-started or login page
-  useEffect(() => {
-    const isPublicRoute =
-      location.pathname === "/get-started" || location.pathname === "/login";
-
-    if (!loading && !user && !isPublicRoute) {
-      navigate("/login", { replace: true });
-    }
-  }, [user, loading, navigate, location.pathname]);
-
   return (
     <AuthContext.Provider
-      value={{ user, loading, error, logout, checkAuthStatus }}
+      value={{
+        user,
+        loading,
+        error,
+        login,
+        logout,
+        checkAuth,
+        isAuthenticated: Boolean(user),
+        authInitialized,
+      }}
     >
       {children}
     </AuthContext.Provider>
   );
-}
+};
 
-export function useAuth() {
-  return useContext(AuthContext);
-}
+export const useAuth = () => useContext(AuthContext);
+
+export default AuthContext;

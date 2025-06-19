@@ -4,83 +4,13 @@ import axios from "axios";
 // In development, use the localhost URL
 const isProd = import.meta.env.PROD;
 const API_BASE_URL = isProd
-  ? import.meta.env.VITE_PROD_API_BASE_URL || "https://crmspace2253.vercel.app"
+  ? import.meta.env.VITE_PROD_API_BASE_URL || "https://crmspace-new.vercel.app"
   : import.meta.env.VITE_API_BASE_URL || "http://localhost:5003";
 
-// Remove trailing slash if present
-const cleanBaseUrl = API_BASE_URL.endsWith("/")
-  ? API_BASE_URL.slice(0, -1)
-  : API_BASE_URL;
-
-console.log("API Base URL:", cleanBaseUrl);
-
 const api = axios.create({
-  baseURL: cleanBaseUrl,
+  baseURL: API_BASE_URL,
   withCredentials: true, // send cookies for session auth
-  headers: {
-    "Content-Type": "application/json",
-  },
 });
-
-// Add a way to store and use an auth token
-let authToken = null;
-
-export const setAuthToken = (token) => {
-  authToken = token;
-
-  // Add token to default headers if it exists
-  if (token) {
-    api.defaults.headers.common["Authorization"] = `Bearer ${token}`;
-  } else {
-    delete api.defaults.headers.common["Authorization"];
-  }
-};
-
-// Add request interceptor for debugging and token handling
-api.interceptors.request.use(
-  (config) => {
-    // Make sure there's no double slash in the URL
-    if (config.url.startsWith("/")) {
-      console.log(
-        `Making ${config.method.toUpperCase()} request to: ${config.baseURL}${
-          config.url
-        }`
-      );
-    } else {
-      console.log(
-        `Making ${config.method.toUpperCase()} request to: ${config.baseURL}/${
-          config.url
-        }`
-      );
-      config.url = `/${config.url}`; // Ensure URL starts with /
-    }
-
-    // Add auth token to request headers if it exists and isn't already set
-    if (authToken && !config.headers.Authorization) {
-      config.headers.Authorization = `Bearer ${authToken}`;
-    }
-
-    return config;
-  },
-  (error) => {
-    return Promise.reject(error);
-  }
-);
-
-// Add response interceptor for debugging
-api.interceptors.response.use(
-  (response) => {
-    return response;
-  },
-  (error) => {
-    console.error(
-      "API Error:",
-      error.response?.status,
-      error.response?.data || error.message
-    );
-    return Promise.reject(error);
-  }
-);
 
 export const loginWithGoogle = () => {
   window.location.href = `${API_BASE_URL}/auth/google`;
@@ -97,17 +27,8 @@ export const logout = async () => {
 };
 
 export const getCurrentUser = async () => {
-  try {
-    const res = await api.get("/auth/me");
-    return res.data;
-  } catch (error) {
-    console.error(
-      "Failed to get current user:",
-      error.response?.status,
-      error.response?.data
-    );
-    throw error;
-  }
+  const res = await api.get("/auth/me");
+  return res.data;
 };
 
 export const apiGet = async (url) => {

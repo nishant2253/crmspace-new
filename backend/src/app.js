@@ -9,7 +9,6 @@ import { createClient } from "redis";
 import router from "./routes/index.js";
 import { initPassport } from "./services/passport.js";
 import path from "path";
-import MongoStore from "connect-mongo";
 
 // Import test environment variables in development only
 if (process.env.NODE_ENV !== "production") {
@@ -37,57 +36,35 @@ const allowedOrigins = [
 // Middleware
 app.use(express.json({ limit: "50mb" }));
 app.use(express.urlencoded({ extended: true, limit: "50mb" }));
-
-// CORS configuration
-const frontendUrl = process.env.FRONTEND_URL || "http://localhost:5173";
-console.log(`Frontend URL: ${frontendUrl}`);
-
 app.use(
   cors({
-    origin: (origin, callback) => {
-      const allowedOrigins = [
-        frontendUrl,
-        "https://crmspacefrontend.vercel.app",
-        "http://localhost:5173",
-      ];
+    origin: function (origin, callback) {
+      // Allow requests with no origin (like mobile apps or curl requests)
+      if (!origin) return callback(null, true);
 
-      console.log("Request origin:", origin);
-
-      if (!origin || allowedOrigins.includes(origin)) {
-        // Allow requests with no origin (like mobile apps, curl, postman)
-        // Or from any of the allowed origins
-        callback(null, origin);
+      if (allowedOrigins.indexOf(origin) !== -1) {
+        callback(null, true);
       } else {
-        callback(new Error(`Origin ${origin} not allowed by CORS`));
+        console.log("Blocked by CORS: ", origin);
+        callback(new Error("Not allowed by CORS"));
       }
     },
-    credentials: true, // Allow credentials (cookies)
+    credentials: true,
     methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
-    allowedHeaders: ["Content-Type", "Authorization"],
-    exposedHeaders: ["Content-Length", "X-Foo", "X-Bar"],
-    maxAge: 86400, // Cache preflight requests for 24 hours
+    allowedHeaders: [
+      "Content-Type",
+      "Authorization",
+      "X-Requested-With",
+      "Accept",
+      "Origin",
+    ],
+    exposedHeaders: ["Access-Control-Allow-Origin"],
   })
 );
-
 app.use(morgan(isProduction ? "combined" : "dev"));
 
 // Add CORS preflight options
 app.options("*", cors());
-
-// Add explicit OPTIONS request handler
-app.options("*", (req, res) => {
-  const origin = req.headers.origin;
-  if (allowedOrigins.includes(origin)) {
-    res.header("Access-Control-Allow-Origin", origin);
-  }
-  res.header("Access-Control-Allow-Credentials", "true");
-  res.header("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS");
-  res.header(
-    "Access-Control-Allow-Headers",
-    "Origin, X-Requested-With, Content-Type, Accept, Authorization"
-  );
-  res.status(200).send();
-});
 
 // Session configuration
 app.use(
@@ -95,26 +72,12 @@ app.use(
     secret: process.env.SESSION_SECRET || "secret",
     resave: false,
     saveUninitialized: false,
-    proxy: true, // Required for Vercel serverless to trust the proxy
     cookie: {
       secure: isProduction, // Use secure cookies in production
       httpOnly: true,
-      sameSite: "none", // Always none for cross-site cookies
+      sameSite: isProduction ? "none" : "lax", // For cross-site cookies in production
       maxAge: 24 * 60 * 60 * 1000, // 1 day
-      path: "/",
-      domain: isProduction ? ".vercel.app" : undefined, // Use Vercel domain in production
     },
-    store: MongoStore.create({
-      mongoUrl: process.env.MONGO_URI || "mongodb://localhost:27017/crm",
-      ttl: 14 * 24 * 60 * 60, // = 14 days. Default
-      autoRemove: "native", // Remove expired sessions
-      touchAfter: 24 * 3600, // Only update the session once per 24 hours unless data changes
-      crypto: {
-        secret: process.env.SESSION_SECRET || "secret",
-      },
-      collectionName: "sessions",
-      stringify: false,
-    }),
   })
 );
 
@@ -125,56 +88,14 @@ app.use(passport.session());
 
 // MongoDB connection
 const mongoUri = process.env.MONGO_URI || "mongodb://localhost:27017/crm";
-
-// Check if we have a cached connection
-let cachedConnection = null;
-
-const connectToMongoDB = async () => {
-  if (cachedConnection) {
-    console.log("Using cached MongoDB connection");
-    return cachedConnection;
-  }
-
-  try {
-    console.log(
-      `Connecting to MongoDB at ${mongoUri.replace(
-        /\/\/([^:]+):[^@]+@/,
-        "//***:***@"
-      )}`
-    );
-
-    const connection = await mongoose.connect(mongoUri, {
-      useNewUrlParser: true,
-      useUnifiedTopology: true,
-      serverSelectionTimeoutMS: 30000, // Increased timeout for serverless
-      socketTimeoutMS: 45000,
-      connectTimeoutMS: 30000,
-      keepAlive: true,
-      keepAliveInitialDelay: 300000,
-    });
-
-    console.log(
-      `MongoDB connected to ${mongoUri.replace(
-        /\/\/([^:]+):[^@]+@/,
-        "//***:***@"
-      )}`
-    );
-    cachedConnection = connection;
-    return connection;
-  } catch (err) {
-    console.error("MongoDB connection error:", err);
-    throw err;
-  }
-};
-
-// Connect to MongoDB before handling requests
-connectToMongoDB()
-  .then(() => {
-    console.log("MongoDB connection established");
+mongoose
+  .connect(mongoUri, {
+    useNewUrlParser: true,
+    useUnifiedTopology: true,
+    serverSelectionTimeoutMS: 15000, // Increased timeout for serverless environments
   })
-  .catch((err) => {
-    console.error("Failed to connect to MongoDB:", err);
-  });
+  .then(() => console.log(`MongoDB connected to ${mongoUri}`))
+  .catch((err) => console.error("MongoDB error:", err));
 
 // Redis client
 let redisClient;

@@ -12,20 +12,44 @@ router.get(
 // Google OAuth callback
 router.get(
   "/google/callback",
-  passport.authenticate("google", { failureRedirect: "/" }),
-  (req, res) => {
-    // Ensure cookies are properly set before redirecting
+  (req, res, next) => {
+    console.log("Google OAuth callback received");
+    // Add CORS headers for the callback
+    res.header(
+      "Access-Control-Allow-Origin",
+      process.env.FRONTEND_URL || "http://localhost:5173"
+    );
     res.header("Access-Control-Allow-Credentials", "true");
-    const origin = process.env.FRONTEND_URL || "http://localhost:5173";
-    res.header("Access-Control-Allow-Origin", origin);
+    next();
+  },
+  passport.authenticate("google", {
+    failureRedirect: "/auth/login-failed",
+    session: true,
+  }),
+  (req, res) => {
+    console.log("Google authentication successful");
+    console.log("User:", req.user?.email);
+    console.log("Session ID:", req.sessionID);
 
-    // Log the user info for debugging
-    console.log("User authenticated:", req.user?.email);
+    // Get the frontend URL from environment or use default
+    const frontendURL = process.env.FRONTEND_URL || "http://localhost:5173";
+    console.log("Redirecting to frontend:", frontendURL);
 
-    // Redirect to frontend
-    res.redirect(origin);
+    // Redirect to the frontend
+    res.redirect(frontendURL);
   }
 );
+
+// Login failed route
+router.get("/login-failed", (req, res) => {
+  console.log("Login failed");
+
+  // Get the frontend URL from environment or use default
+  const frontendURL = process.env.FRONTEND_URL || "http://localhost:5173";
+
+  // Redirect to the frontend with error parameter
+  res.redirect(`${frontendURL}?auth_error=true`);
+});
 
 // Logout
 router.get("/logout", (req, res) => {
@@ -36,10 +60,23 @@ router.get("/logout", (req, res) => {
 
 // Get current user
 router.get("/me", (req, res) => {
+  console.log("Auth /me endpoint called");
+  console.log("Is authenticated:", req.isAuthenticated());
+  console.log("Session ID:", req.sessionID);
+  console.log("Session:", req.session);
+  console.log("Cookies:", req.headers.cookie);
+
   if (req.isAuthenticated()) {
-    res.json(req.user);
+    console.log("User is authenticated, returning user data");
+    return res.json({
+      id: req.user.id,
+      email: req.user.email,
+      name: req.user.name,
+      role: req.user.role,
+    });
   } else {
-    res.status(401).json({ error: "Not authenticated" });
+    console.log("User is not authenticated, returning 401");
+    return res.status(401).json({ error: "Not authenticated" });
   }
 });
 

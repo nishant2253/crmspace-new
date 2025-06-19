@@ -9,6 +9,7 @@ import { createClient } from "redis";
 import router from "./routes/index.js";
 import { initPassport } from "./services/passport.js";
 import path from "path";
+import MongoStore from "connect-mongo";
 
 // Import test environment variables in development only
 if (process.env.NODE_ENV !== "production") {
@@ -67,20 +68,30 @@ app.use(morgan(isProduction ? "combined" : "dev"));
 app.options("*", cors());
 
 // Session configuration
-app.use(
-  session({
-    secret: process.env.SESSION_SECRET || "secret",
-    resave: false,
-    saveUninitialized: false,
-    cookie: {
-      secure: isProduction, // Use secure cookies in production
-      httpOnly: true,
-      sameSite: isProduction ? "none" : "lax", // For cross-site cookies in production
-      maxAge: 24 * 60 * 60 * 1000, // 1 day
-      domain: isProduction ? undefined : undefined, // Let the browser set this automatically
-    },
-  })
-);
+const sessionConfig = {
+  secret: process.env.SESSION_SECRET || "your-secret-key",
+  resave: false,
+  saveUninitialized: false,
+  store: new MongoStore({
+    mongoUrl: process.env.MONGO_URI || "mongodb://localhost:27017/crm",
+    ttl: 14 * 24 * 60 * 60, // 14 days
+    autoRemove: "native",
+  }),
+  cookie: {
+    maxAge: 1000 * 60 * 60 * 24 * 7, // 1 week
+    httpOnly: true,
+    secure: process.env.NODE_ENV === "production",
+    sameSite: process.env.NODE_ENV === "production" ? "none" : "lax",
+  },
+};
+
+// In production, ensure secure cookies
+if (process.env.NODE_ENV === "production") {
+  app.set("trust proxy", 1); // Trust first proxy
+  console.log("Production environment detected - using secure cookies");
+}
+
+app.use(session(sessionConfig));
 
 // Passport
 initPassport();

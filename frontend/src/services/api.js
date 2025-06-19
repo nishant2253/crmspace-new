@@ -1,91 +1,97 @@
 import axios from "axios";
 
-// In production (Vercel), use the production API URL
-// In development, use the localhost URL
-const isProd = import.meta.env.PROD;
-const API_BASE_URL = isProd
-  ? import.meta.env.VITE_PROD_API_BASE_URL || "https://crmspace2253.vercel.app"
-  : import.meta.env.VITE_API_BASE_URL || "http://localhost:5003";
+// Get API base URL from environment or use default
+const API_BASE_URL =
+  import.meta.env.VITE_API_URL || "https://crmspace2253.vercel.app";
 
-console.log("API Base URL:", API_BASE_URL); // Log the API URL for debugging
-
+// Create axios instance with credentials
 const api = axios.create({
   baseURL: API_BASE_URL,
-  withCredentials: true, // send cookies for session auth
+  withCredentials: true,
+  headers: {
+    "Content-Type": "application/json",
+  },
 });
 
-export const loginWithGoogle = () => {
-  console.log("Redirecting to Google OAuth:", `${API_BASE_URL}/auth/google`);
-  window.location.href = `${API_BASE_URL}/auth/google`;
-};
-
-export const logout = async () => {
-  try {
-    await api.get("/auth/logout");
-    return true;
-  } catch (error) {
-    console.error("Logout failed:", error);
-    return false;
+// Add request interceptor for debugging
+api.interceptors.request.use(
+  (config) => {
+    console.log(`API Request: ${config.method.toUpperCase()} ${config.url}`);
+    return config;
+  },
+  (error) => {
+    console.error("API Request Error:", error);
+    return Promise.reject(error);
   }
-};
+);
 
-export const getCurrentUser = async () => {
-  try {
-    const res = await api.get("/auth/me");
-    console.log("Current user data:", res.data);
-    return res.data;
-  } catch (error) {
-    console.error("Error getting current user:", error);
-    throw error;
+// Add response interceptor for debugging
+api.interceptors.response.use(
+  (response) => {
+    console.log(`API Response: ${response.status} ${response.config.url}`);
+    return response;
+  },
+  (error) => {
+    console.error("API Response Error:", error.response?.status, error.message);
+    return Promise.reject(error);
   }
+);
+
+// Auth API
+export const authAPI = {
+  // Get current user
+  getCurrentUser: async () => {
+    try {
+      const response = await api.get("/auth/me");
+      return response.data;
+    } catch (error) {
+      console.error("Error getting current user:", error);
+      throw error;
+    }
+  },
+
+  // Login with Google (redirects to Google)
+  loginWithGoogle: () => {
+    console.log("Redirecting to Google OAuth");
+    window.location.href = `${API_BASE_URL}/auth/google`;
+  },
+
+  // Logout
+  logout: async () => {
+    try {
+      const response = await api.get("/auth/logout");
+      return response.data;
+    } catch (error) {
+      console.error("Error logging out:", error);
+      throw error;
+    }
+  },
 };
 
-// Test authentication status
-export const testAuth = async () => {
-  try {
-    const res = await api.get("/auth/test-auth");
-    console.log("Auth test result:", res.data);
-    return res.data;
-  } catch (error) {
-    console.error("Auth test failed:", error);
-    return { isAuthenticated: false, error: error.message };
-  }
+// Test API endpoints
+export const testAPI = {
+  // Test database connection
+  checkDbStatus: async () => {
+    try {
+      const response = await api.get("/test/db-status");
+      return response.data;
+    } catch (error) {
+      console.error("Error checking DB status:", error);
+      throw error;
+    }
+  },
+
+  // Test authentication status
+  checkAuthStatus: async () => {
+    try {
+      const response = await api.get("/test/auth-status");
+      return response.data;
+    } catch (error) {
+      console.error("Error checking auth status:", error);
+      throw error;
+    }
+  },
 };
 
-export const apiGet = async (url) => {
-  const res = await api.get(url);
-  return res.data;
-};
-
-export const apiPost = async (url, data) => {
-  const res = await api.post(url, data);
-  return res.data;
-};
-
-// Function to post to test endpoints (no credentials)
-export const apiPostNoCredentials = async (url, data) => {
-  try {
-    console.log(
-      "Making request to",
-      `${API_BASE_URL}${url}`,
-      "with data",
-      data
-    );
-    const res = await axios({
-      method: "post",
-      url: `${API_BASE_URL}${url}`,
-      data: data,
-      headers: {
-        "Content-Type": "application/json",
-      },
-      withCredentials: false,
-    });
-    console.log("Response:", res.data);
-    return res.data;
-  } catch (error) {
-    console.error("API Error:", error);
-    throw error;
-  }
-};
-
+// Export the API instance
 export default api;

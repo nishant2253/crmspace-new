@@ -11,6 +11,7 @@ import NotFoundPage from "./pages/NotFoundPage";
 import ProtectedRoute from "./components/ProtectedRoute";
 import { AnimatePresence, motion } from "framer-motion";
 import { useAuth } from "./contexts/AuthContext";
+import DebugPage from "./pages/DebugPage";
 
 // Page transition variants
 const pageVariants = {
@@ -94,6 +95,7 @@ export default function App() {
                     </ProtectedRoute>
                   }
                 />
+                <Route path="/debug" element={<DebugPage />} />
                 <Route path="*" element={<NotFoundPage />} />
               </Routes>
             </motion.div>

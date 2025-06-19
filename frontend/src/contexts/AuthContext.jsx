@@ -1,55 +1,79 @@
 import React, { createContext, useContext, useEffect, useState } from "react";
-import { getCurrentUser, logout as apiLogout, testAuth } from "../services/api";
+import { authAPI, testAPI } from "../services/api";
 import { useNavigate, useLocation } from "react-router-dom";
 
 const AuthContext = createContext();
 
-export function AuthProvider({ children }) {
+export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
-  const [authError, setAuthError] = useState(null);
+  const [error, setError] = useState(null);
+  const [debugInfo, setDebugInfo] = useState(null);
   const navigate = useNavigate();
   const location = useLocation();
 
-  // Fetch user on mount with improved error handling
+  // Initialize auth state
   useEffect(() => {
-    const fetchUser = async () => {
+    const initAuth = async () => {
       try {
-        // First try the test endpoint
-        const testResult = await testAuth();
-        console.log("Auth test result:", testResult);
-
-        if (testResult.isAuthenticated && testResult.user) {
-          setUser(testResult.user);
-          setAuthError(null);
-        } else {
-          // Fallback to regular endpoint
-          const userData = await getCurrentUser();
-          setUser(userData);
-          setAuthError(null);
-        }
+        console.log("Initializing auth state...");
+        setLoading(true);
+        const userData = await authAPI.getCurrentUser();
+        console.log("User data received:", userData);
+        setUser(userData);
+        setError(null);
       } catch (err) {
         console.error("Authentication error:", err);
         setUser(null);
-        setAuthError(err.message || "Failed to authenticate");
+        setError(err.message);
+
+        // Try to get debug info
+        try {
+          const authStatus = await testAPI.checkAuthStatus();
+          const dbStatus = await testAPI.checkDbStatus();
+          setDebugInfo({ authStatus, dbStatus });
+          console.log("Debug info:", { authStatus, dbStatus });
+        } catch (debugErr) {
+          console.error("Failed to get debug info:", debugErr);
+        }
       } finally {
         setLoading(false);
       }
     };
 
-    fetchUser();
+    initAuth();
   }, []);
 
-  // Improved logout: clear user, redirect, handle errors
+  // Login with Google
+  const loginWithGoogle = () => {
+    console.log("Initiating Google login...");
+    authAPI.loginWithGoogle();
+  };
+
+  // Logout
   const logout = async () => {
     try {
-      await apiLogout();
+      console.log("Logging out...");
+      await authAPI.logout();
+      setUser(null);
+      console.log("Logout successful");
     } catch (err) {
       console.error("Logout error:", err);
-      // Ignore network errors on logout
-    } finally {
-      setUser(null);
-      navigate("/get-started", { replace: true });
+      setError(err.message);
+    }
+  };
+
+  // Check auth status for debugging
+  const checkAuthStatus = async () => {
+    try {
+      const authStatus = await testAPI.checkAuthStatus();
+      const dbStatus = await testAPI.checkDbStatus();
+      setDebugInfo({ authStatus, dbStatus });
+      return { authStatus, dbStatus };
+    } catch (err) {
+      console.error("Failed to check auth status:", err);
+      setError(err.message);
+      return null;
     }
   };
 
@@ -64,13 +88,27 @@ export function AuthProvider({ children }) {
     }
   }, [user, loading, navigate, location.pathname]);
 
-  return (
-    <AuthContext.Provider value={{ user, loading, authError, logout }}>
-      {children}
-    </AuthContext.Provider>
-  );
-}
+  // Context value
+  const value = {
+    user,
+    loading,
+    error,
+    debugInfo,
+    loginWithGoogle,
+    logout,
+    checkAuthStatus,
+    isAuthenticated: !!user,
+  };
 
-export function useAuth() {
-  return useContext(AuthContext);
-}
+  return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
+};
+
+export const useAuth = () => {
+  const context = useContext(AuthContext);
+  if (!context) {
+    throw new Error("useAuth must be used within an AuthProvider");
+  }
+  return context;
+};
+
+export default AuthContext;

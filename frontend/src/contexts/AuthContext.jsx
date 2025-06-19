@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import api from "../services/api";
+import api, { setAuthToken } from "../services/api";
 
 const AuthContext = createContext();
 
@@ -17,10 +17,17 @@ export const AuthProvider = ({ children }) => {
     const authSuccess = urlParams.get("auth");
     const authError = urlParams.get("error");
     const errorMsg = urlParams.get("message");
+    const authToken = urlParams.get("token");
 
-    if (authSuccess === "success") {
-      console.log("Auth success detected in URL");
+    if (authSuccess === "success" && authToken) {
+      console.log("Auth success with token detected in URL");
       // Remove the query parameter and reload
+      window.history.replaceState({}, document.title, window.location.pathname);
+
+      // Verify the token
+      verifyToken(authToken);
+    } else if (authSuccess === "success") {
+      console.log("Auth success without token detected in URL");
       window.history.replaceState({}, document.title, window.location.pathname);
       checkAuth();
     }
@@ -32,6 +39,42 @@ export const AuthProvider = ({ children }) => {
       setAuthInitialized(true);
     }
   }, []);
+
+  // Verify token from URL
+  const verifyToken = async (token) => {
+    console.log("Verifying token:", token);
+    setLoading(true);
+    setError(null);
+
+    try {
+      // Set the token for API calls
+      setAuthToken(token);
+
+      const response = await api.post("/auth/verify-token", { token });
+      console.log("Token verification response:", response.data);
+
+      if (response.data.success) {
+        // If the token is valid, check authentication again
+        localStorage.setItem("authToken", token); // Store the token
+        await checkAuth();
+      } else {
+        setUser(null);
+        setAuthToken(null); // Clear the token
+        localStorage.removeItem("authToken");
+        setError("Failed to verify authentication token");
+        setAuthInitialized(true);
+        setLoading(false);
+      }
+    } catch (error) {
+      console.error("Token verification failed:", error);
+      setUser(null);
+      setAuthToken(null); // Clear the token
+      localStorage.removeItem("authToken");
+      setError(`Authentication failed: ${error.message}`);
+      setAuthInitialized(true);
+      setLoading(false);
+    }
+  };
 
   // Check authentication status
   const checkAuth = async () => {
@@ -65,7 +108,14 @@ export const AuthProvider = ({ children }) => {
 
   // Initialize authentication on page load
   useEffect(() => {
-    checkAuth();
+    // Check if we have a saved token
+    const savedToken = localStorage.getItem("authToken");
+    if (savedToken) {
+      console.log("Found saved token, verifying...");
+      verifyToken(savedToken);
+    } else {
+      checkAuth();
+    }
 
     // Set up an interval to periodically check auth status (useful for session expiry)
     const intervalId = setInterval(checkAuth, 5 * 60 * 1000); // Every 5 minutes
@@ -84,11 +134,15 @@ export const AuthProvider = ({ children }) => {
     try {
       await api.post("/auth/logout");
       setUser(null);
+      setAuthToken(null); // Clear the token
+      localStorage.removeItem("authToken");
       navigate("/login");
     } catch (error) {
       console.error("Logout error:", error);
       // Force logout even if API call fails
       setUser(null);
+      setAuthToken(null);
+      localStorage.removeItem("authToken");
       navigate("/login");
     }
   };

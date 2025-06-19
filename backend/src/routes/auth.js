@@ -30,10 +30,11 @@ router.get(
   (req, res, next) => {
     console.log("Received Google callback");
     console.log("Session in callback:", req.sessionID);
+    console.log("Callback headers:", JSON.stringify(req.headers));
     next();
   },
   (req, res, next) => {
-    passport.authenticate("google", (err, user, info) => {
+    passport.authenticate("google", { session: true }, (err, user, info) => {
       console.log("Google auth callback processing...");
 
       if (err) {
@@ -67,6 +68,8 @@ router.get(
 
         console.log("User authenticated successfully:", user.email);
         console.log("Session after login:", req.sessionID);
+        req.session.userId = user._id;
+        req.session.email = user.email;
 
         // Force session save before redirecting
         req.session.save((err) => {
@@ -74,12 +77,30 @@ router.get(
             console.error("Session save error:", err);
           }
 
-          // Redirect to frontend after login with a success parameter
-          return res.redirect(
-            `${
-              process.env.FRONTEND_URL || "http://localhost:5173"
-            }?auth=success`
-          );
+          // Generate a stronger session token to be passed in the URL
+          const sessionToken =
+            req.sessionID +
+            "_" +
+            Date.now() +
+            "_" +
+            Math.random().toString(36).substring(2, 15);
+
+          // Store this token in the session for verification
+          req.session.authToken = sessionToken;
+
+          // Save the session again with the token
+          req.session.save((err) => {
+            if (err) {
+              console.error("Second session save error:", err);
+            }
+
+            // Redirect to frontend after login with a success parameter and session token
+            return res.redirect(
+              `${
+                process.env.FRONTEND_URL || "http://localhost:5173"
+              }?auth=success&token=${sessionToken}`
+            );
+          });
         });
       });
     })(req, res, next);
@@ -134,6 +155,46 @@ router.get("/me", (req, res) => {
     console.error("Error in /auth/me endpoint:", error);
     res.status(500).json({ error: error.message });
   }
+});
+
+// Verify token from URL
+router.post("/verify-token", (req, res) => {
+  const { token } = req.body;
+
+  console.log("Verifying token:", token);
+  console.log("Current session:", req.sessionID);
+  console.log("Session data:", req.session);
+
+  if (!token) {
+    return res.status(400).json({ error: "No token provided" });
+  }
+
+  // If user is already authenticated, we're good
+  if (req.isAuthenticated()) {
+    console.log("User already authenticated");
+    const { password, ...userData } = req.user._doc || req.user;
+    return res.json({ success: true, user: userData });
+  }
+
+  // If we have a token in the session and it matches
+  if (req.session.authToken && req.session.authToken === token) {
+    console.log("Token verification successful");
+
+    // If we have user data in session but user is not authenticated yet
+    if (req.session.userId) {
+      console.log("We have user ID in session, restoring authentication");
+
+      // Return the authentication success response
+      return res.json({
+        success: true,
+        message: "Token verified",
+        sessionId: req.sessionID,
+      });
+    }
+  }
+
+  console.log("Token verification failed");
+  return res.status(401).json({ error: "Invalid or expired token" });
 });
 
 export default router;

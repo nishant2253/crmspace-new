@@ -22,7 +22,21 @@ const api = axios.create({
   },
 });
 
-// Add request interceptor for debugging
+// Add a way to store and use an auth token
+let authToken = null;
+
+export const setAuthToken = (token) => {
+  authToken = token;
+
+  // Add token to default headers if it exists
+  if (token) {
+    api.defaults.headers.common["Authorization"] = `Bearer ${token}`;
+  } else {
+    delete api.defaults.headers.common["Authorization"];
+  }
+};
+
+// Add request interceptor for debugging and token handling
 api.interceptors.request.use(
   (config) => {
     // Make sure there's no double slash in the URL
@@ -40,6 +54,12 @@ api.interceptors.request.use(
       );
       config.url = `/${config.url}`; // Ensure URL starts with /
     }
+
+    // Add auth token to request headers if it exists and isn't already set
+    if (authToken && !config.headers.Authorization) {
+      config.headers.Authorization = `Bearer ${authToken}`;
+    }
+
     return config;
   },
   (error) => {

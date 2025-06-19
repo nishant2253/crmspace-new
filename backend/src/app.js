@@ -74,6 +74,21 @@ app.use(morgan(isProduction ? "combined" : "dev"));
 // Add CORS preflight options
 app.options("*", cors());
 
+// Add explicit OPTIONS request handler
+app.options("*", (req, res) => {
+  const origin = req.headers.origin;
+  if (allowedOrigins.includes(origin)) {
+    res.header("Access-Control-Allow-Origin", origin);
+  }
+  res.header("Access-Control-Allow-Credentials", "true");
+  res.header("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS");
+  res.header(
+    "Access-Control-Allow-Headers",
+    "Origin, X-Requested-With, Content-Type, Accept, Authorization"
+  );
+  res.status(200).send();
+});
+
 // Session configuration
 app.use(
   session({
@@ -84,9 +99,10 @@ app.use(
     cookie: {
       secure: isProduction, // Use secure cookies in production
       httpOnly: true,
-      sameSite: isProduction ? "none" : "lax", // For cross-site cookies in production
+      sameSite: "none", // Always none for cross-site cookies
       maxAge: 24 * 60 * 60 * 1000, // 1 day
       path: "/",
+      domain: isProduction ? ".vercel.app" : undefined, // Use Vercel domain in production
     },
     store: MongoStore.create({
       mongoUrl: process.env.MONGO_URI || "mongodb://localhost:27017/crm",
@@ -96,6 +112,8 @@ app.use(
       crypto: {
         secret: process.env.SESSION_SECRET || "secret",
       },
+      collectionName: "sessions",
+      stringify: false,
     }),
   })
 );

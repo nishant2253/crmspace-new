@@ -4,8 +4,10 @@ import axios from "axios";
 // In development, use the localhost URL
 const isProd = import.meta.env.PROD;
 const API_BASE_URL = isProd
-  ? import.meta.env.VITE_PROD_API_BASE_URL || "https://crmspace-new.vercel.app"
+  ? import.meta.env.VITE_PROD_API_BASE_URL || "https://crmspace2253.vercel.app"
   : import.meta.env.VITE_API_BASE_URL || "http://localhost:5003";
+
+console.log("API Base URL:", API_BASE_URL); // Log the API URL for debugging
 
 const api = axios.create({
   baseURL: API_BASE_URL,
@@ -13,6 +15,7 @@ const api = axios.create({
 });
 
 export const loginWithGoogle = () => {
+  console.log("Redirecting to Google OAuth:", `${API_BASE_URL}/auth/google`);
   window.location.href = `${API_BASE_URL}/auth/google`;
 };
 
@@ -27,8 +30,26 @@ export const logout = async () => {
 };
 
 export const getCurrentUser = async () => {
-  const res = await api.get("/auth/me");
-  return res.data;
+  try {
+    const res = await api.get("/auth/me");
+    console.log("Current user data:", res.data);
+    return res.data;
+  } catch (error) {
+    console.error("Error getting current user:", error);
+    throw error;
+  }
+};
+
+// Test authentication status
+export const testAuth = async () => {
+  try {
+    const res = await api.get("/auth/test-auth");
+    console.log("Auth test result:", res.data);
+    return res.data;
+  } catch (error) {
+    console.error("Auth test failed:", error);
+    return { isAuthenticated: false, error: error.message };
+  }
 };
 
 export const apiGet = async (url) => {

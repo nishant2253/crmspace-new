@@ -77,6 +77,7 @@ app.use(
       httpOnly: true,
       sameSite: isProduction ? "none" : "lax", // For cross-site cookies in production
       maxAge: 24 * 60 * 60 * 1000, // 1 day
+      domain: isProduction ? undefined : undefined, // Let the browser set this automatically
     },
   })
 );

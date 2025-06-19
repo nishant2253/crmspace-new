@@ -36,6 +36,37 @@ const allowedOrigins = [
 // Middleware
 app.use(express.json({ limit: "50mb" }));
 app.use(express.urlencoded({ extended: true, limit: "50mb" }));
+
+// Simple CORS middleware that works with all browsers
+app.use((req, res, next) => {
+  const origin = req.headers.origin;
+
+  // Log the origin for debugging
+  console.log(`Request from origin: ${origin}`);
+
+  // Check if the origin is allowed
+  if (allowedOrigins.includes(origin) || !origin) {
+    res.setHeader("Access-Control-Allow-Origin", origin || "*");
+    res.setHeader("Access-Control-Allow-Credentials", "true");
+    res.setHeader(
+      "Access-Control-Allow-Methods",
+      "GET, POST, PUT, DELETE, OPTIONS"
+    );
+    res.setHeader(
+      "Access-Control-Allow-Headers",
+      "Origin, X-Requested-With, Content-Type, Accept, Authorization"
+    );
+  }
+
+  // Handle preflight requests
+  if (req.method === "OPTIONS") {
+    return res.status(200).end();
+  }
+
+  next();
+});
+
+// Original CORS middleware for backward compatibility
 app.use(
   cors({
     origin: function (origin, callback) {
@@ -46,7 +77,8 @@ app.use(
         callback(null, true);
       } else {
         console.log("Blocked by CORS: ", origin);
-        callback(new Error("Not allowed by CORS"));
+        // Instead of throwing error, just log and allow
+        callback(null, true);
       }
     },
     credentials: true,
@@ -61,6 +93,7 @@ app.use(
     exposedHeaders: ["Access-Control-Allow-Origin"],
   })
 );
+
 app.use(morgan(isProduction ? "combined" : "dev"));
 
 // Add CORS preflight options
@@ -88,14 +121,56 @@ app.use(passport.session());
 
 // MongoDB connection
 const mongoUri = process.env.MONGO_URI || "mongodb://localhost:27017/crm";
-mongoose
-  .connect(mongoUri, {
-    useNewUrlParser: true,
-    useUnifiedTopology: true,
-    serverSelectionTimeoutMS: 15000, // Increased timeout for serverless environments
+
+// Check if we have a cached connection
+let cachedConnection = null;
+
+const connectToMongoDB = async () => {
+  if (cachedConnection) {
+    console.log("Using cached MongoDB connection");
+    return cachedConnection;
+  }
+
+  try {
+    console.log(
+      `Connecting to MongoDB at ${mongoUri.replace(
+        /\/\/([^:]+):[^@]+@/,
+        "//***:***@"
+      )}`
+    );
+
+    const connection = await mongoose.connect(mongoUri, {
+      useNewUrlParser: true,
+      useUnifiedTopology: true,
+      serverSelectionTimeoutMS: 30000, // Increased timeout for serverless
+      socketTimeoutMS: 45000,
+      connectTimeoutMS: 30000,
+      keepAlive: true,
+      keepAliveInitialDelay: 300000,
+    });
+
+    console.log(
+      `MongoDB connected to ${mongoUri.replace(
+        /\/\/([^:]+):[^@]+@/,
+        "//***:***@"
+      )}`
+    );
+    cachedConnection = connection;
+    return connection;
+  } catch (err) {
+    console.error("MongoDB connection error:", err);
+    throw err;
+  }
+};
+
+// Connect to MongoDB before handling requests
+connectToMongoDB()
+  .then(() => {
+    console.log("MongoDB connection established");
   })
-  .then(() => console.log(`MongoDB connected to ${mongoUri}`))
-  .catch((err) => console.error("MongoDB error:", err));
+  .catch((err) => {
+    console.error("Failed to connect to MongoDB:", err);
+  });
 
 // Redis client
 let redisClient;

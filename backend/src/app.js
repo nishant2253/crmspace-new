@@ -23,24 +23,48 @@ dotenv.config();
 const app = express();
 const isProduction = process.env.NODE_ENV === "production";
 
+// Define allowed origins
+const allowedOrigins = [
+  process.env.FRONTEND_URL ||
+    (isProduction
+      ? "https://crmspacefrontend.vercel.app"
+      : "http://localhost:5173"),
+  "https://crmspacefrontend.vercel.app",
+  "http://localhost:5173",
+];
+
 // Middleware
 app.use(express.json({ limit: "50mb" }));
 app.use(express.urlencoded({ extended: true, limit: "50mb" }));
 app.use(
   cors({
-    origin: [
-      process.env.FRONTEND_URL ||
-        (isProduction
-          ? "https://crmspace-new.vercel.app"
-          : "http://localhost:5173"),
-      "http://localhost:5173", // Explicitly add this to ensure it works
-    ],
+    origin: function (origin, callback) {
+      // Allow requests with no origin (like mobile apps or curl requests)
+      if (!origin) return callback(null, true);
+
+      if (allowedOrigins.indexOf(origin) !== -1) {
+        callback(null, true);
+      } else {
+        console.log("Blocked by CORS: ", origin);
+        callback(new Error("Not allowed by CORS"));
+      }
+    },
     credentials: true,
     methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
-    allowedHeaders: ["Content-Type", "Authorization"],
+    allowedHeaders: [
+      "Content-Type",
+      "Authorization",
+      "X-Requested-With",
+      "Accept",
+      "Origin",
+    ],
+    exposedHeaders: ["Access-Control-Allow-Origin"],
   })
 );
 app.use(morgan(isProduction ? "combined" : "dev"));
+
+// Add CORS preflight options
+app.options("*", cors());
 
 // Session configuration
 app.use(
@@ -52,6 +76,7 @@ app.use(
       secure: isProduction, // Use secure cookies in production
       httpOnly: true,
       sameSite: isProduction ? "none" : "lax", // For cross-site cookies in production
+      maxAge: 24 * 60 * 60 * 1000, // 1 day
     },
   })
 );
@@ -67,6 +92,7 @@ mongoose
   .connect(mongoUri, {
     useNewUrlParser: true,
     useUnifiedTopology: true,
+    serverSelectionTimeoutMS: 15000, // Increased timeout for serverless environments
   })
   .then(() => console.log(`MongoDB connected to ${mongoUri}`))
   .catch((err) => console.error("MongoDB error:", err));
@@ -85,6 +111,16 @@ try {
   console.error("Redis initialization error:", err);
 }
 
+// CORS test endpoint
+app.get("/cors-test", (req, res) => {
+  res.json({
+    message: "CORS is working!",
+    origin: req.headers.origin,
+    cookies: req.cookies,
+    user: req.user ? { id: req.user.id, email: req.user.email } : null,
+  });
+});
+
 // Placeholder for routes
 app.get("/", (req, res) => {
   res.send("CRMspace Platform API");
@@ -95,6 +131,16 @@ app.use(
   "/uploads/campaigns",
   express.static(path.join(process.cwd(), "uploads", "campaigns"))
 );
+
+// Add CORS headers to auth routes specifically
+app.use("/auth", (req, res, next) => {
+  res.header("Access-Control-Allow-Credentials", "true");
+  const origin = req.headers.origin;
+  if (allowedOrigins.includes(origin)) {
+    res.header("Access-Control-Allow-Origin", origin);
+  }
+  next();
+});
 
 app.use(router);
 

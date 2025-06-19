@@ -42,48 +42,65 @@ export const initPassport = () => {
   console.log("- Callback URL:", callbackURL);
   console.log("- Frontend URL:", frontendURL);
 
-  // Configure Google strategy
-  passport.use(
-    new GoogleStrategy(
-      {
-        clientID: googleClientID,
-        clientSecret: googleClientSecret,
-        callbackURL: callbackURL,
-        proxy: true, // Trust proxy - important for Vercel
-        passReqToCallback: true, // Pass request to callback
-      },
-      async (req, accessToken, refreshToken, profile, done) => {
-        console.log(
-          "Google auth callback received for user:",
-          profile.displayName
-        );
+  // Only configure Google strategy if credentials are available
+  if (googleClientID && googleClientSecret) {
+    // Configure Google strategy
+    passport.use(
+      new GoogleStrategy(
+        {
+          clientID: googleClientID,
+          clientSecret: googleClientSecret,
+          callbackURL: callbackURL,
+          proxy: true, // Trust proxy - important for Vercel
+          passReqToCallback: true, // Pass request to callback
+        },
+        async (req, accessToken, refreshToken, profile, done) => {
+          console.log(
+            "Google auth callback received for user:",
+            profile.displayName
+          );
 
-        try {
-          // Check if user exists
-          let user = await User.findOne({ googleId: profile.id });
+          try {
+            // Check if user exists
+            let user = await User.findOne({ googleId: profile.id });
 
-          if (user) {
-            console.log("Existing user found:", user.email);
+            if (user) {
+              console.log("Existing user found:", user.email);
+              return done(null, user);
+            }
+
+            // Create new user
+            console.log("Creating new user for:", profile.displayName);
+            user = new User({
+              googleId: profile.id,
+              email: profile.emails[0].value,
+              name: profile.displayName,
+              role: "user",
+            });
+
+            await user.save();
+            console.log("New user created:", user.email);
             return done(null, user);
+          } catch (err) {
+            console.error("Error in Google auth callback:", err);
+            return done(err, null);
           }
-
-          // Create new user
-          console.log("Creating new user for:", profile.displayName);
-          user = new User({
-            googleId: profile.id,
-            email: profile.emails[0].value,
-            name: profile.displayName,
-            role: "user",
-          });
-
-          await user.save();
-          console.log("New user created:", user.email);
-          return done(null, user);
-        } catch (err) {
-          console.error("Error in Google auth callback:", err);
-          return done(err, null);
         }
-      }
-    )
-  );
+      )
+    );
+  } else {
+    console.warn(
+      "Google OAuth credentials not configured. Authentication will be disabled."
+    );
+
+    // Add a dummy strategy for development without credentials
+    passport.use("google", {
+      name: "google",
+      authenticate: function (req, options) {
+        return this.fail({
+          message: "Google OAuth credentials not configured",
+        });
+      },
+    });
+  }
 };

@@ -1,21 +1,24 @@
 import express from "express";
-import { requireAuth } from "../middleware/auth.js";
-import {
-  segmentRulesFromText,
-  campaignSummary,
-  campaignMessageFromName,
-  campaignImageGeneration,
-} from "../controllers/aiController.js";
+import * as aiController from "../controllers/aiController.js";
 
 const router = express.Router();
 
-router.post("/segment-rules-from-text", requireAuth, segmentRulesFromText);
-router.post("/campaign-summary", requireAuth, campaignSummary);
+// Generate segmentation rules from text
+router.post("/segment-rules", aiController.generateRules);
+
+// Generate campaign summary
+router.post("/campaign-summary", aiController.generateCampaignSummary);
+
+// Generate email content
+router.post("/email-content", aiController.generateEmailContent);
+
+// Generate marketing message
+router.post("/marketing-message", aiController.generateMarketingMessage);
+
+// Get campaign summary with stats
 router.post(
-  "/campaign-message-from-name",
-  requireAuth,
-  campaignMessageFromName
+  "/campaign/:campaignId/summary",
+  aiController.getCampaignSummaryWithStats
 );
-router.post("/campaign-image", requireAuth, campaignImageGeneration);
 
 export default router;

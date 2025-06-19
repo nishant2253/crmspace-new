@@ -9,7 +9,6 @@ import { createClient } from "redis";
 import router from "./routes/index.js";
 import { initPassport } from "./services/passport.js";
 import path from "path";
-import MongoStore from "connect-mongo";
 
 // Import test environment variables in development only
 if (process.env.NODE_ENV !== "production") {
@@ -67,16 +66,24 @@ app.use(morgan(isProduction ? "combined" : "dev"));
 // Add CORS preflight options
 app.options("*", cors());
 
+// Import MongoStore with a try-catch to handle missing dependency
+let MongoStore;
+try {
+  MongoStore = (await import("connect-mongo")).default;
+  console.log("Successfully imported connect-mongo");
+} catch (err) {
+  console.warn(
+    "Warning: connect-mongo not available, falling back to memory store",
+    err
+  );
+  MongoStore = null;
+}
+
 // Session configuration
 const sessionConfig = {
   secret: process.env.SESSION_SECRET || "your-secret-key",
   resave: false,
   saveUninitialized: false,
-  store: new MongoStore({
-    mongoUrl: process.env.MONGO_URI || "mongodb://localhost:27017/crm",
-    ttl: 14 * 24 * 60 * 60, // 14 days
-    autoRemove: "native",
-  }),
   cookie: {
     maxAge: 1000 * 60 * 60 * 24 * 7, // 1 week
     httpOnly: true,
@@ -84,6 +91,20 @@ const sessionConfig = {
     sameSite: process.env.NODE_ENV === "production" ? "none" : "lax",
   },
 };
+
+// Add MongoDB store if available
+if (MongoStore) {
+  sessionConfig.store = new MongoStore({
+    mongoUrl: process.env.MONGO_URI || "mongodb://localhost:27017/crm",
+    ttl: 14 * 24 * 60 * 60, // 14 days
+    autoRemove: "native",
+  });
+  console.log("Using MongoDB for session storage");
+} else {
+  console.warn(
+    "Using memory store for sessions (not recommended for production)"
+  );
+}
 
 // In production, ensure secure cookies
 if (process.env.NODE_ENV === "production") {

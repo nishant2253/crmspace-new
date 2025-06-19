@@ -2,12 +2,6 @@ import express from "express";
 import Customer from "../models/Customer.js";
 import mongoose from "mongoose";
 import { buildQueryFromRules } from "../controllers/segmentController.js";
-import {
-  segmentRulesFromText,
-  campaignSummary,
-  campaignMessageFromName,
-  campaignImageGeneration,
-} from "../controllers/aiController.js";
 import fs from "fs";
 import path from "path";
 import { fileURLToPath } from "url";

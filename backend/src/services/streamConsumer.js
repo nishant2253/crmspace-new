@@ -5,6 +5,7 @@ import mongoose from "mongoose";
 import { getRedisClient } from "../redis/client.js";
 import Customer from "../models/Customer.js";
 import Order from "../models/Order.js";
+import CommunicationLog from "../models/CommunicationLog.js";
 
 const redisClient = getRedisClient();
 const CONSUMER_GROUP = "crm-consumer-group";
@@ -55,6 +56,38 @@ async function setupConsumerGroups() {
     } else {
       console.error("Error creating order consumer group:", err.message);
     }
+  }
+
+  // Add consumer group for campaign delivery
+  try {
+    // Wildcard pattern for all campaign streams
+    const campaignStreams = await redisClient.keys("stream:campaign:*");
+
+    for (const streamKey of campaignStreams) {
+      try {
+        await redisClient.xgroup(
+          "CREATE",
+          streamKey,
+          CONSUMER_GROUP,
+          "$",
+          "MKSTREAM"
+        );
+        console.log(`Campaign consumer group created for ${streamKey}`);
+      } catch (err) {
+        if (err.message.includes("BUSYGROUP")) {
+          console.log(
+            `Campaign consumer group already exists for ${streamKey}`
+          );
+        } else {
+          console.error(
+            `Error creating campaign consumer group for ${streamKey}:`,
+            err.message
+          );
+        }
+      }
+    }
+  } catch (err) {
+    console.error("Error setting up campaign consumer groups:", err.message);
   }
 }
 
@@ -156,6 +189,117 @@ async function processOrderStream() {
   }
 }
 
+async function processCampaignDeliveryStreams() {
+  while (true) {
+    try {
+      // Find all campaign streams
+      const campaignStreams = await redisClient.keys("stream:campaign:*");
+
+      if (campaignStreams.length === 0) {
+        // No campaign streams yet, wait and check again
+        await new Promise((resolve) => setTimeout(resolve, 5000));
+        continue;
+      }
+
+      // Process each campaign stream
+      for (const streamKey of campaignStreams) {
+        try {
+          // Ensure consumer group exists for this stream
+          try {
+            await redisClient.xgroup(
+              "CREATE",
+              streamKey,
+              CONSUMER_GROUP,
+              "$",
+              "MKSTREAM"
+            );
+          } catch (err) {
+            if (!err.message.includes("BUSYGROUP")) {
+              console.error(
+                `Error creating consumer group for ${streamKey}:`,
+                err.message
+              );
+            }
+          }
+
+          // Read messages from this stream
+          const res = await redisClient.xreadgroup(
+            "GROUP",
+            CONSUMER_GROUP,
+            CONSUMER_NAME,
+            "BLOCK",
+            1000,
+            "COUNT",
+            10,
+            "STREAMS",
+            streamKey,
+            ">"
+          );
+
+          if (res) {
+            const [[, entries]] = res;
+            for (const [id, fields] of entries) {
+              const data = Object.fromEntries(
+                fields
+                  .map((v, i, arr) => (i % 2 === 0 ? [v, arr[i + 1]] : null))
+                  .filter(Boolean)
+              );
+
+              try {
+                // Process the message (simulate message delivery)
+                console.log(
+                  `Processing message for ${data.customerName} (${data.customerEmail})`
+                );
+
+                // Simulate 90% success rate
+                const isSuccess = Math.random() < 0.9;
+
+                // Update the communication log with the result
+                if (data.logId) {
+                  await CommunicationLog.findByIdAndUpdate(data.logId, {
+                    status: isSuccess ? "SENT" : "FAILED",
+                    deliveredAt: isSuccess ? new Date() : undefined,
+                    isMockData: data.isMockData === "true",
+                  });
+
+                  console.log(
+                    `Message ${isSuccess ? "sent" : "failed"} to ${
+                      data.customerName
+                    } (${data.isMockData === "true" ? "mock" : "real"} data)`
+                  );
+                }
+
+                // Acknowledge message as processed
+                await redisClient.xack(streamKey, CONSUMER_GROUP, id);
+              } catch (err) {
+                console.error(
+                  `Error processing campaign message:`,
+                  err.message
+                );
+              }
+            }
+          }
+        } catch (streamErr) {
+          console.error(
+            `Error processing stream ${streamKey}:`,
+            streamErr.message
+          );
+        }
+      }
+
+      // Small delay before checking streams again
+      await new Promise((resolve) => setTimeout(resolve, 1000));
+    } catch (err) {
+      console.error(
+        "Error in campaign delivery stream processor:",
+        err.message
+      );
+      // Small delay to prevent tight error loop
+      await new Promise((resolve) => setTimeout(resolve, 5000));
+    }
+  }
+}
+
 async function main() {
   await connectMongo();
 
@@ -163,7 +307,11 @@ async function main() {
   await setupConsumerGroups();
 
   console.log("Starting stream processors...");
-  await Promise.all([processCustomerStream(), processOrderStream()]);
+  await Promise.all([
+    processCustomerStream(),
+    processOrderStream(),
+    processCampaignDeliveryStreams(),
+  ]);
 }
 
 main().catch(console.error);

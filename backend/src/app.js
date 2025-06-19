@@ -24,16 +24,20 @@ const app = express();
 const isProduction = process.env.NODE_ENV === "production";
 
 // Middleware
-app.use(express.json());
+app.use(express.json({ limit: "50mb" }));
+app.use(express.urlencoded({ extended: true, limit: "50mb" }));
 app.use(
   cors({
-    origin:
+    origin: [
       process.env.FRONTEND_URL ||
-      (isProduction
-        ? "https://crmspace-new.vercel.app"
-        : "http://localhost:5173"),
+        (isProduction
+          ? "https://crmspace-new.vercel.app"
+          : "http://localhost:5173"),
+      "http://localhost:5173", // Explicitly add this to ensure it works
+    ],
     credentials: true,
     methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+    allowedHeaders: ["Content-Type", "Authorization"],
   })
 );
 app.use(morgan(isProduction ? "combined" : "dev"));

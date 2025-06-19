@@ -8,6 +8,7 @@ const customerSchema = new mongoose.Schema(
     lastVisit: { type: Date },
     lastOrderDate: { type: Date },
     visitCount: { type: Number, default: 0 },
+    isMockData: { type: Boolean, default: false },
   },
   { timestamps: true }
 );

@@ -10,11 +10,13 @@ const communicationLogSchema = new mongoose.Schema(
     customerId: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "Customer",
-      required: true,
+      required: function () {
+        return this.status !== "MASTER_LOG";
+      },
     },
     status: {
       type: String,
-      enum: ["SENT", "FAILED", "MASTER_LOG"],
+      enum: ["SENT", "FAILED", "MASTER_LOG", "QUEUED"],
       required: true,
     },
     deliveredAt: { type: Date },
@@ -23,6 +25,7 @@ const communicationLogSchema = new mongoose.Schema(
     segmentName: { type: String },
     campaignData: { type: String },
     aiImage: { type: String },
+    isMockData: { type: Boolean, default: false },
   },
   { timestamps: true }
 );

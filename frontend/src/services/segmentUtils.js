@@ -1,7 +1,7 @@
 // Frontend utility to preview segment audience locally
 // This can be used when the API segment preview is not accessible (e.g., authentication issues)
 
-// Mock customer data from backend/mock-data/customers.json
+// Mock customer data based on backend/mock-data/customers.json with additional customers
 const mockCustomers = [
   {
     name: "Alice Sharma",
@@ -26,6 +26,62 @@ const mockCustomers = [
     lastVisit: "2024-03-20T11:00:00Z",
     lastOrderDate: "2024-03-18T16:00:00Z",
     visitCount: 4,
+  },
+  {
+    name: "David Kumar",
+    email: "david@example.com",
+    totalSpend: 2000,
+    lastVisit: "2024-05-05T14:30:00Z",
+    lastOrderDate: "2024-05-05T14:00:00Z",
+    visitCount: 1,
+  },
+  {
+    name: "Eva Gupta",
+    email: "eva@example.com",
+    totalSpend: 15000,
+    lastVisit: "2024-04-20T16:45:00Z",
+    lastOrderDate: "2024-04-20T16:30:00Z",
+    visitCount: 8,
+  },
+  {
+    name: "Frank Mehta",
+    email: "frank@example.com",
+    totalSpend: 500,
+    lastVisit: "2024-01-10T09:15:00Z",
+    lastOrderDate: "2024-01-10T09:00:00Z",
+    visitCount: 1,
+  },
+  {
+    name: "Grace Sharma",
+    email: "grace@example.com",
+    totalSpend: 9500,
+    lastVisit: "2024-05-02T11:30:00Z",
+    lastOrderDate: "2024-05-01T10:00:00Z",
+    visitCount: 6,
+  },
+  {
+    name: "Harry Singh",
+    email: "harry@example.com",
+    totalSpend: 7200,
+    lastVisit: "2024-04-25T13:45:00Z",
+    lastOrderDate: "2024-04-23T14:00:00Z",
+    visitCount: 3,
+  },
+  {
+    name: "Irene Joshi",
+    email: "irene@example.com",
+    totalSpend: 4500,
+    lastVisit: "2024-03-15T10:30:00Z",
+    lastOrderDate: "2024-03-15T10:15:00Z",
+    visitCount: 2,
+  },
+  {
+    name: "Jack Patel",
+    email: "jack@example.com",
+    totalSpend: 11000,
+    lastVisit: "2024-05-03T17:00:00Z",
+    lastOrderDate: "2024-05-03T16:45:00Z",
+    visitCount: 7,
   },
 ];
 
@@ -65,6 +121,14 @@ export const previewSegmentAudience = (rulesJSON) => {
 
   // Default to empty if not provided
   const { rules = [], condition = "AND" } = rulesJSON;
+
+  // If no rules, return all customers
+  if (!rules.length) {
+    return {
+      audienceSize: mockCustomers.length,
+      sample: mockCustomers.slice(0, 5),
+    };
+  }
 
   // Filter customers based on rules
   const matchedCustomers = mockCustomers.filter((customer) => {

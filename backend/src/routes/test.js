@@ -2,8 +2,309 @@ import express from "express";
 import Customer from "../models/Customer.js";
 import mongoose from "mongoose";
 import { buildQueryFromRules } from "../controllers/segmentController.js";
+import {
+  segmentRulesFromText,
+  campaignSummary,
+  campaignMessageFromName,
+  campaignImageGeneration,
+} from "../controllers/aiController.js";
+import fs from "fs";
+import path from "path";
+import { fileURLToPath } from "url";
+
+// Get the directory name
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 const router = express.Router();
+
+// Flag to track if mock data is loaded
+let mockDataLoaded = false;
+
+// Route to import mock data to MongoDB
+router.post("/import-mock-data", async (req, res) => {
+  try {
+    // Add CORS headers
+    res.header("Access-Control-Allow-Origin", "http://localhost:5173");
+    res.header(
+      "Access-Control-Allow-Headers",
+      "Origin, X-Requested-With, Content-Type, Accept"
+    );
+    res.header("Access-Control-Allow-Credentials", "true");
+
+    console.log("TEST ROUTE: Importing mock data to MongoDB");
+
+    // Use hardcoded mock customers instead of reading from file
+    const mockCustomers = [
+      {
+        name: "Bob Singh",
+        email: "bob@example.com",
+        totalSpend: 3500,
+        lastVisit: "2024-04-15T09:00:00Z",
+        lastOrderDate: "2024-04-10T14:00:00Z",
+        visitCount: 2,
+      },
+      {
+        name: "Carol Patel",
+        email: "carol@example.com",
+        totalSpend: 8000,
+        lastVisit: "2024-03-20T11:00:00Z",
+        lastOrderDate: "2024-03-18T16:00:00Z",
+        visitCount: 4,
+      },
+    ];
+
+    // Add additional mock customers from the frontend segmentUtils.js
+    const additionalMockCustomers = [
+      {
+        name: "Alice Sharma",
+        email: "alice@example.com",
+        totalSpend: 12000,
+        lastVisit: "2024-05-01T10:00:00Z",
+        lastOrderDate: "2024-04-28T12:00:00Z",
+        visitCount: 5,
+      },
+      {
+        name: "David Kumar",
+        email: "david@example.com",
+        totalSpend: 2000,
+        lastVisit: "2024-05-05T14:30:00Z",
+        lastOrderDate: "2024-05-05T14:00:00Z",
+        visitCount: 1,
+      },
+      {
+        name: "Eva Gupta",
+        email: "eva@example.com",
+        totalSpend: 15000,
+        lastVisit: "2024-04-20T16:45:00Z",
+        lastOrderDate: "2024-04-20T16:30:00Z",
+        visitCount: 8,
+      },
+      {
+        name: "Frank Mehta",
+        email: "frank@example.com",
+        totalSpend: 500,
+        lastVisit: "2024-01-10T09:15:00Z",
+        lastOrderDate: "2024-01-10T09:00:00Z",
+        visitCount: 1,
+      },
+      {
+        name: "Grace Sharma",
+        email: "grace@example.com",
+        totalSpend: 9500,
+        lastVisit: "2024-05-02T11:30:00Z",
+        lastOrderDate: "2024-05-01T10:00:00Z",
+        visitCount: 6,
+      },
+      {
+        name: "Harry Singh",
+        email: "harry@example.com",
+        totalSpend: 7200,
+        lastVisit: "2024-04-25T13:45:00Z",
+        lastOrderDate: "2024-04-23T14:00:00Z",
+        visitCount: 3,
+      },
+      {
+        name: "Irene Joshi",
+        email: "irene@example.com",
+        totalSpend: 4500,
+        lastVisit: "2024-03-15T10:30:00Z",
+        lastOrderDate: "2024-03-15T10:15:00Z",
+        visitCount: 2,
+      },
+      {
+        name: "Jack Patel",
+        email: "jack@example.com",
+        totalSpend: 11000,
+        lastVisit: "2024-05-03T17:00:00Z",
+        lastOrderDate: "2024-05-03T16:45:00Z",
+        visitCount: 7,
+      },
+    ];
+
+    // Combine all mock customers
+    const allMockCustomers = [...mockCustomers, ...additionalMockCustomers];
+
+    // Check if mock data is already loaded
+    const mockCustomerCount = await Customer.countDocuments({
+      isMockData: true,
+    });
+
+    if (mockCustomerCount > 0) {
+      // Mock data already exists, just update the flag
+      mockDataLoaded = true;
+      return res.json({
+        message: "Mock data already loaded",
+        count: mockCustomerCount,
+      });
+    }
+
+    // Tag each mock customer as mock data
+    const taggedMockCustomers = allMockCustomers.map((customer) => ({
+      ...customer,
+      isMockData: true,
+      email:
+        customer.email ||
+        `mock-${Math.random().toString(36).substring(2, 15)}@example.com`,
+    }));
+
+    // Insert mock customers into the database
+    await Customer.insertMany(taggedMockCustomers);
+
+    // Set flag to indicate mock data is loaded
+    mockDataLoaded = true;
+
+    res.json({
+      message: "Mock data imported successfully",
+      count: taggedMockCustomers.length,
+    });
+  } catch (err) {
+    console.error("Error importing mock data:", err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Route to check if mock data is loaded
+router.get("/mock-data-status", async (req, res) => {
+  try {
+    // Add CORS headers
+    res.header("Access-Control-Allow-Origin", "http://localhost:5173");
+    res.header(
+      "Access-Control-Allow-Headers",
+      "Origin, X-Requested-With, Content-Type, Accept"
+    );
+    res.header("Access-Control-Allow-Credentials", "true");
+
+    // Count mock customers in the database
+    const mockCustomerCount = await Customer.countDocuments({
+      isMockData: true,
+    });
+    mockDataLoaded = mockCustomerCount > 0;
+
+    res.json({
+      mockDataLoaded,
+      mockCustomerCount,
+    });
+  } catch (err) {
+    console.error("Error checking mock data status:", err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Route to remove mock data
+router.post("/remove-mock-data", async (req, res) => {
+  try {
+    // Add CORS headers
+    res.header("Access-Control-Allow-Origin", "http://localhost:5173");
+    res.header(
+      "Access-Control-Allow-Headers",
+      "Origin, X-Requested-With, Content-Type, Accept"
+    );
+    res.header("Access-Control-Allow-Credentials", "true");
+
+    console.log("TEST ROUTE: Removing mock data from MongoDB");
+
+    // Delete all mock customers
+    const result = await Customer.deleteMany({ isMockData: true });
+
+    // Reset flag
+    mockDataLoaded = false;
+
+    res.json({
+      message: "Mock data removed successfully",
+      count: result.deletedCount,
+    });
+  } catch (err) {
+    console.error("Error removing mock data:", err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Mock AI route for segment rules (no auth required)
+router.post("/segment-rules-from-text", async (req, res) => {
+  try {
+    // Add CORS headers
+    res.header("Access-Control-Allow-Origin", "http://localhost:5173");
+    res.header(
+      "Access-Control-Allow-Headers",
+      "Origin, X-Requested-With, Content-Type, Accept"
+    );
+    res.header("Access-Control-Allow-Credentials", "true");
+
+    console.log("TEST ROUTE: Received AI segment rules request");
+    const { prompt } = req.body;
+
+    if (!prompt) {
+      return res.status(400).json({ error: "Prompt required" });
+    }
+
+    console.log("Prompt:", prompt);
+
+    // Generate mock rules based on the prompt content
+    let mockRules;
+
+    if (
+      prompt.toLowerCase().includes("high") ||
+      prompt.toLowerCase().includes("more than") ||
+      prompt.toLowerCase().includes("over")
+    ) {
+      mockRules = {
+        rules: [{ field: "totalSpend", operator: ">", value: 5000 }],
+        condition: "AND",
+      };
+    } else if (
+      prompt.toLowerCase().includes("low") ||
+      prompt.toLowerCase().includes("less than") ||
+      prompt.toLowerCase().includes("under")
+    ) {
+      mockRules = {
+        rules: [{ field: "totalSpend", operator: "<", value: 5000 }],
+        condition: "AND",
+      };
+    } else if (
+      prompt.toLowerCase().includes("frequent") ||
+      prompt.toLowerCase().includes("visit")
+    ) {
+      mockRules = {
+        rules: [{ field: "visitCount", operator: ">", value: 3 }],
+        condition: "AND",
+      };
+    } else if (prompt.toLowerCase().includes("recent")) {
+      mockRules = {
+        rules: [
+          { field: "lastVisit", operator: ">", value: "2024-04-01T00:00:00Z" },
+        ],
+        condition: "AND",
+      };
+    } else {
+      // Default rules
+      mockRules = {
+        rules: [{ field: "totalSpend", operator: ">", value: 1000 }],
+        condition: "AND",
+      };
+    }
+
+    console.log("Generated mock rules:", JSON.stringify(mockRules, null, 2));
+
+    // Return the mock rules
+    res.json({ rulesJSON: mockRules });
+  } catch (err) {
+    console.error("Error generating segment rules:", err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Add CORS preflight handler for AI routes
+router.options("/segment-rules-from-text", (req, res) => {
+  res.header("Access-Control-Allow-Origin", "http://localhost:5173");
+  res.header("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
+  res.header(
+    "Access-Control-Allow-Headers",
+    "Origin, X-Requested-With, Content-Type, Accept"
+  );
+  res.header("Access-Control-Allow-Credentials", "true");
+  res.sendStatus(200);
+});
 
 // Test route for segment preview (no auth required)
 router.post("/segments/preview", async (req, res) => {
@@ -170,6 +471,40 @@ router.get("/frontend-test", async (req, res) => {
     console.error("Error in frontend test:", err);
     res.status(500).json({ error: err.message });
   }
+});
+
+// Add CORS preflight handler for mock data routes
+router.options("/import-mock-data", (req, res) => {
+  res.header("Access-Control-Allow-Origin", "http://localhost:5173");
+  res.header("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
+  res.header(
+    "Access-Control-Allow-Headers",
+    "Origin, X-Requested-With, Content-Type, Accept"
+  );
+  res.header("Access-Control-Allow-Credentials", "true");
+  res.sendStatus(200);
+});
+
+router.options("/mock-data-status", (req, res) => {
+  res.header("Access-Control-Allow-Origin", "http://localhost:5173");
+  res.header("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
+  res.header(
+    "Access-Control-Allow-Headers",
+    "Origin, X-Requested-With, Content-Type, Accept"
+  );
+  res.header("Access-Control-Allow-Credentials", "true");
+  res.sendStatus(200);
+});
+
+router.options("/remove-mock-data", (req, res) => {
+  res.header("Access-Control-Allow-Origin", "http://localhost:5173");
+  res.header("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
+  res.header(
+    "Access-Control-Allow-Headers",
+    "Origin, X-Requested-With, Content-Type, Accept"
+  );
+  res.header("Access-Control-Allow-Credentials", "true");
+  res.sendStatus(200);
 });
 
 export default router;

@@ -494,6 +494,49 @@ export default function CampaignsPage() {
                             </div>
                           </div>
 
+                          {/* Show mock data info if present */}
+                          {campaignStats[campaign._id].hasMockData && (
+                            <div className="mb-4">
+                              <div className="flex items-center mb-2">
+                                <div className="bg-blue-100 text-blue-800 text-xs px-2 py-1 rounded-full mr-2">
+                                  Includes Mock Data
+                                </div>
+                                <span className="text-xs text-gray-500">
+                                  This campaign includes mock customer data
+                                </span>
+                              </div>
+                              <div className="grid grid-cols-3 gap-2 mb-2 bg-blue-50 p-2 rounded">
+                                <div className="text-center">
+                                  <p className="text-xs text-gray-500">
+                                    Mock Total
+                                  </p>
+                                  <p className="font-medium">
+                                    {campaignStats[campaign._id].mockData.total}
+                                  </p>
+                                </div>
+                                <div className="text-center">
+                                  <p className="text-xs text-gray-500">
+                                    Mock Sent
+                                  </p>
+                                  <p className="font-medium text-green-600">
+                                    {campaignStats[campaign._id].mockData.sent}
+                                  </p>
+                                </div>
+                                <div className="text-center">
+                                  <p className="text-xs text-gray-500">
+                                    Mock Failed
+                                  </p>
+                                  <p className="font-medium text-red-600">
+                                    {
+                                      campaignStats[campaign._id].mockData
+                                        .failed
+                                    }
+                                  </p>
+                                </div>
+                              </div>
+                            </div>
+                          )}
+
                           {campaignLogs[campaign._id] &&
                             campaignLogs[campaign._id].length > 0 && (
                               <div>
@@ -523,8 +566,12 @@ export default function CampaignsPage() {
                                         .map((log) => (
                                           <tr key={log._id}>
                                             <td className="px-3 py-2 whitespace-nowrap text-sm">
-                                              {log.customerId?.name ||
-                                                "Unknown"}
+                                              {log.customerName || "Unknown"}
+                                              {log.isMockData && (
+                                                <span className="ml-1 text-xs bg-blue-100 text-blue-800 px-1 py-0.5 rounded">
+                                                  Mock
+                                                </span>
+                                              )}
                                             </td>
                                             <td className="px-3 py-2 whitespace-nowrap text-sm">
                                               <span

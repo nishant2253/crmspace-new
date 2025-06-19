@@ -6,6 +6,8 @@ import { buildQueryFromRules } from "./segmentController.js";
 import path from "path";
 import fs from "fs";
 import { v4 as uuidv4 } from "uuid";
+import { createClient } from "redis";
+import { getSegmentCustomers } from "../controllers/segmentController.js";
 
 export const handleDeliveryReceipt = async (req, res) => {
   try {
@@ -111,7 +113,7 @@ export const handleCampaignDelivery = async (req, res) => {
     console.log("DELIVERY CONTROLLER: Creating master log entry");
     const masterCampaignLog = await CommunicationLog.create({
       campaignId: campaignId,
-      customerId: req.user._id, // Using user ID as a placeholder for master log
+      customerId: null,
       status: "MASTER_LOG",
       message: messageText,
       segmentName: segment.name,
@@ -125,12 +127,11 @@ export const handleCampaignDelivery = async (req, res) => {
       }),
     });
 
-    // Find audience using segment rule
+    // Find audience using getSegmentCustomers to include mock data
     console.log("DELIVERY CONTROLLER: Finding audience with segment rule");
-    const query = buildQueryFromRules(segment.rulesJSON);
-    const audience = await Customer.find(query);
+    const audience = await getSegmentCustomers(segmentId);
     console.log(
-      `DELIVERY CONTROLLER: Found ${audience.length} matching customers`
+      `DELIVERY CONTROLLER: Found ${audience.length} matching customers (including mock data: ${segment.useMockData})`
     );
 
     // Simulate delivery (90% success, 10% failure)
@@ -148,6 +149,7 @@ export const handleCampaignDelivery = async (req, res) => {
           message: `Hey ${customer.name}, ${messageText}`,
           customerName: customer.name,
           aiImage: aiImageUrl,
+          isMockData: customer.isMockData || false,
         });
       })
     );
@@ -173,3 +175,141 @@ export const handleCampaignDelivery = async (req, res) => {
     res.status(500).json({ error: err.message });
   }
 };
+
+export const processCampaignDelivery = async (req, res) => {
+  try {
+    const { campaignId, segmentId } = req.body;
+    if (!campaignId || !segmentId)
+      return res
+        .status(400)
+        .json({ error: "campaignId and segmentId required" });
+
+    console.log(`Processing campaign delivery for campaign: ${campaignId}`);
+
+    // Get segment and campaign
+    const segment = await SegmentRule.findById(segmentId);
+    if (!segment) return res.status(404).json({ error: "Segment not found" });
+
+    const campaign = await Campaign.findById(campaignId);
+    if (!campaign) return res.status(404).json({ error: "Campaign not found" });
+
+    // Get customers for this segment using the getSegmentCustomers function
+    // This will automatically handle mock data based on the segment's useMockData flag
+    const customers = await getSegmentCustomers(segmentId);
+    console.log(`Found ${customers.length} customers for segment ${segmentId}`);
+
+    // Create a master log entry for this campaign
+    const masterLog = await CommunicationLog.create({
+      campaignId,
+      customerId: null,
+      status: "MASTER_LOG",
+      message: `Support your community and discover hidden gems right around the corner...`,
+      segmentName: segment.name,
+    });
+
+    // Try to use Redis for message processing
+    let useRedis = true;
+    let redisClient;
+    try {
+      redisClient = createClient({
+        url: `redis://${process.env.REDIS_HOST}:${process.env.REDIS_PORT}`,
+      });
+      await redisClient.connect();
+    } catch (redisErr) {
+      console.error(
+        "Redis connection error, falling back to direct processing:",
+        redisErr.message
+      );
+      useRedis = false;
+    }
+
+    const logs = [];
+    const streamKey = `stream:campaign:${campaignId}`;
+
+    // Process each customer
+    for (const customer of customers) {
+      try {
+        // Create a communication log for this customer
+        const log = new CommunicationLog({
+          campaignId,
+          customerId: customer._id,
+          status: "QUEUED",
+          message: campaign.messageText,
+          segmentName: segment.name,
+          customerName: customer.name,
+          isMockData: customer.isMockData || false,
+          campaignData: JSON.stringify({
+            userId: customer._id,
+            segmentId: segment._id,
+          }),
+        });
+        await log.save();
+        logs.push(log);
+
+        if (useRedis) {
+          // Add to Redis stream
+          try {
+            await redisClient.xAdd(streamKey, "*", {
+              customerId: customer._id.toString(),
+              customerName: customer.name,
+              customerEmail: customer.email,
+              messageText: campaign.messageText,
+              campaignName: campaign.name,
+              segmentName: segment.name,
+              logId: log._id.toString(),
+              aiImage: campaign.aiImage || "",
+              isMockData: customer.isMockData ? "true" : "false",
+            });
+          } catch (streamErr) {
+            console.error("Error adding to Redis stream:", streamErr.message);
+            // If Redis stream fails, update the log directly
+            await directProcessMessage(log._id);
+          }
+        } else {
+          // Direct processing without Redis
+          await directProcessMessage(log._id);
+        }
+      } catch (err) {
+        console.error(
+          `Error processing customer ${customer._id}:`,
+          err.message
+        );
+      }
+    }
+
+    // Close Redis connection if it was opened
+    if (useRedis && redisClient) {
+      await redisClient.quit();
+    }
+
+    // Return success response
+    res.json({
+      success: true,
+      customersCount: customers.length,
+      logsCreated: logs.length,
+      masterLogId: masterLog._id,
+    });
+  } catch (err) {
+    console.error("Error processing campaign delivery:", err);
+    res.status(500).json({ error: err.message });
+  }
+};
+
+// Helper function to directly process a message without Redis
+async function directProcessMessage(logId) {
+  try {
+    // Simulate 90% success rate
+    const isSuccess = Math.random() < 0.9;
+
+    // Update the communication log with the result
+    await CommunicationLog.findByIdAndUpdate(logId, {
+      status: isSuccess ? "SENT" : "FAILED",
+      deliveredAt: isSuccess ? new Date() : undefined,
+    });
+
+    return true;
+  } catch (err) {
+    console.error("Error in direct message processing:", err);
+    return false;
+  }
+}

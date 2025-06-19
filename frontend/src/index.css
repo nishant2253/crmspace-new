@@ -2,7 +2,7 @@
 @tailwind components;
 @tailwind utilities;
 
-/* Custom Animation Classes */
+/* Custom Animation Classes - These are kept for backward compatibility */
 @layer utilities {
   .animate-fade-in {
     animation: fadeIn 0.7s forwards;
@@ -22,6 +22,50 @@
 
   .hover-lift:hover {
     transform: translateY(-2px);
+  }
+
+  /* Enhanced animation utilities for Framer Motion integration */
+  .motion-safe-all {
+    @apply motion-safe:transition-all motion-safe:duration-300 motion-safe:ease-in-out;
+  }
+
+  .motion-card {
+    @apply rounded-lg bg-white shadow-sm hover:shadow-md motion-safe-all;
+  }
+
+  .motion-button {
+    @apply transform transition-transform duration-200 hover:scale-105 active:scale-95;
+  }
+
+  .motion-input {
+    @apply transition-all duration-200 focus:ring-2 focus:ring-blue-500 focus:ring-opacity-50;
+  }
+
+  /* Gradient animations */
+  .gradient-text {
+    @apply bg-clip-text text-transparent bg-gradient-to-r from-blue-500 to-purple-600;
+    background-size: 200% 200%;
+    animation: gradientFlow 3s ease infinite;
+  }
+
+  .gradient-border {
+    position: relative;
+    border-radius: 0.5rem;
+    z-index: 0;
+  }
+
+  .gradient-border::before {
+    content: "";
+    position: absolute;
+    top: -2px;
+    left: -2px;
+    right: -2px;
+    bottom: -2px;
+    background: linear-gradient(45deg, #3b82f6, #8b5cf6, #ec4899);
+    border-radius: inherit;
+    z-index: -1;
+    background-size: 200% 200%;
+    animation: gradientFlow 3s ease infinite;
   }
 }
 
@@ -46,6 +90,7 @@
   opacity: 1 !important;
 }
 
+/* Animation keyframes */
 @keyframes fadeIn {
   from {
     opacity: 0;
@@ -78,6 +123,57 @@
   100% {
     transform: scale(1);
   }
+}
+
+@keyframes gradientFlow {
+  0% {
+    background-position: 0% 50%;
+  }
+  50% {
+    background-position: 100% 50%;
+  }
+  100% {
+    background-position: 0% 50%;
+  }
+}
+
+@keyframes pulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.7;
+  }
+}
+
+@keyframes float {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-10px);
+  }
+}
+
+/* Page transitions */
+.page-enter {
+  opacity: 0;
+  transform: translateY(20px);
+}
+.page-enter-active {
+  opacity: 1;
+  transform: translateY(0);
+  transition: opacity 300ms, transform 300ms;
+}
+.page-exit {
+  opacity: 1;
+}
+.page-exit-active {
+  opacity: 0;
+  transform: translateY(-20px);
+  transition: opacity 300ms, transform 300ms;
 }
 
 @layer base {
@@ -133,5 +229,10 @@
   }
   body {
     @apply bg-background text-foreground;
+  }
+
+  /* Smooth scrolling for page transitions */
+  html {
+    scroll-behavior: smooth;
   }
 }

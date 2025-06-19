@@ -2,6 +2,7 @@ import Campaign from "../models/Campaign.js";
 import SegmentRule from "../models/SegmentRule.js";
 import Customer from "../models/Customer.js";
 import CommunicationLog from "../models/CommunicationLog.js";
+import { getSegmentCustomers } from "./segmentController.js";
 import fs from "fs";
 import path from "path";
 import { v4 as uuidv4 } from "uuid";
@@ -172,7 +173,35 @@ export const getCampaignStats = async (req, res) => {
       campaignId: id,
       status: "FAILED",
     });
-    res.json({ total, sent, failed });
+
+    // Get counts for mock data
+    const mockTotal = await CommunicationLog.countDocuments({
+      campaignId: id,
+      status: { $ne: "MASTER_LOG" },
+      isMockData: true,
+    });
+    const mockSent = await CommunicationLog.countDocuments({
+      campaignId: id,
+      status: "SENT",
+      isMockData: true,
+    });
+    const mockFailed = await CommunicationLog.countDocuments({
+      campaignId: id,
+      status: "FAILED",
+      isMockData: true,
+    });
+
+    res.json({
+      total,
+      sent,
+      failed,
+      mockData: {
+        total: mockTotal,
+        sent: mockSent,
+        failed: mockFailed,
+      },
+      hasMockData: mockTotal > 0,
+    });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }

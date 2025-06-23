@@ -37,11 +37,29 @@ export function initPassport() {
   );
 
   passport.serializeUser((user, done) => {
+    // For guest users, serialize the entire user object
+    if (user.isGuest) {
+      return done(null, {
+        isGuest: true,
+        _id: user._id,
+        name: user.name,
+        email: user.email,
+        picture: user.picture,
+      });
+    }
+    // For regular users, serialize just the ID
     done(null, user.id);
   });
-  passport.deserializeUser(async (id, done) => {
+
+  passport.deserializeUser(async (serialized, done) => {
     try {
-      const user = await User.findById(id);
+      // Check if this is a guest user (serialized will be the full object)
+      if (serialized && typeof serialized === "object" && serialized.isGuest) {
+        return done(null, serialized);
+      }
+
+      // Otherwise, it's a regular user ID
+      const user = await User.findById(serialized);
       done(null, user);
     } catch (err) {
       done(err, null);

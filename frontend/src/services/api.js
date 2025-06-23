@@ -17,7 +17,16 @@ export const loginWithGoogle = () => {
 };
 
 export const loginAsGuest = () => {
-  window.location.href = `${API_BASE_URL}/auth/guest`;
+  console.log("Logging in as guest");
+
+  // Create a form and submit it
+  const form = document.createElement("form");
+  form.method = "GET";
+  form.action = "http://localhost:5003/auth/guest";
+
+  // Append the form to the body and submit it
+  document.body.appendChild(form);
+  form.submit();
 };
 
 export const logout = async () => {

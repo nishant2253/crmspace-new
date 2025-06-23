@@ -33,6 +33,8 @@ router.get(
 
 // Guest login - creates a guest user session
 router.get("/guest", (req, res) => {
+  console.log("Guest login route accessed");
+
   // Create a guest user object
   const guestUser = {
     _id: "guest-user",
@@ -42,12 +44,16 @@ router.get("/guest", (req, res) => {
     picture: "https://ui-avatars.com/api/?name=Guest+User&background=random",
   };
 
+  console.log("Guest user object created:", guestUser);
+
   // Log in the guest user
   req.login(guestUser, (err) => {
     if (err) {
       console.error("Guest login error:", err);
       return res.status(500).json({ error: "Failed to login as guest" });
     }
+
+    console.log("req.login successful, saving session");
 
     // Save the session
     req.session.save((err) => {

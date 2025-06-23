@@ -67,30 +67,46 @@ async function setupRedis() {
   try {
     // Check if REDIS_URL is provided (preferred for production/Upstash)
     if (process.env.REDIS_URL) {
+      console.log("Connecting to Redis using REDIS_URL");
       redisClient = new Redis(process.env.REDIS_URL, {
         tls: isProduction ? { rejectUnauthorized: false } : undefined,
+        connectTimeout: 10000, // 10 seconds
+        disconnectTimeout: 5000, // 5 seconds
         retryStrategy: (times) => {
-          if (times > 10) {
+          console.log(`Redis connection retry attempt ${times}`);
+          if (times > 5) {
             console.log("Redis max retries reached, using memory store");
             return null; // stop retrying
           }
-          return Math.min(times * 50, 1000); // wait time between retries
+          const delay = Math.min(times * 200, 2000);
+          console.log(`Retrying Redis connection in ${delay}ms`);
+          return delay;
         },
-        maxRetriesPerRequest: 3,
+        maxRetriesPerRequest: 2,
       });
     } else {
       // Fallback to individual connection parameters
+      console.log(
+        `Connecting to Redis at ${process.env.REDIS_HOST || "localhost"}:${
+          process.env.REDIS_PORT || 6379
+        }`
+      );
       redisClient = new Redis({
         host: process.env.REDIS_HOST || "localhost",
         port: process.env.REDIS_PORT || 6379,
+        connectTimeout: 10000, // 10 seconds
+        disconnectTimeout: 5000, // 5 seconds
         retryStrategy: (times) => {
-          if (times > 10) {
+          console.log(`Redis connection retry attempt ${times}`);
+          if (times > 5) {
             console.log("Redis max retries reached, using memory store");
             return null; // stop retrying
           }
-          return Math.min(times * 50, 1000); // wait time between retries
+          const delay = Math.min(times * 200, 2000);
+          console.log(`Retrying Redis connection in ${delay}ms`);
+          return delay;
         },
-        maxRetriesPerRequest: 3,
+        maxRetriesPerRequest: 2,
       });
     }
 
@@ -99,9 +115,27 @@ async function setupRedis() {
       console.log("Redis error:", err.message);
     });
 
+    // Add additional event handlers for better debugging
+    redisClient.on("connect", () => {
+      console.log("Redis: connect event fired");
+    });
+
+    redisClient.on("ready", () => {
+      console.log("Redis: ready event fired");
+    });
+
+    redisClient.on("end", () => {
+      console.log("Redis: end event fired");
+    });
+
     // For ioredis, we don't need to explicitly connect
-    // Test the connection
-    await redisClient.ping();
+    // Test the connection with a timeout
+    const pingPromise = redisClient.ping();
+    const timeoutPromise = new Promise((_, reject) =>
+      setTimeout(() => reject(new Error("Redis ping timeout")), 5000)
+    );
+
+    await Promise.race([pingPromise, timeoutPromise]);
     console.log("Redis connected successfully");
 
     // Create Redis store for session
@@ -112,6 +146,16 @@ async function setupRedis() {
   } catch (err) {
     console.log(`Redis connection failed: ${err.message}`);
     console.log("Using memory store for session instead");
+    // Try to close the Redis client if it exists to prevent hanging connections
+    if (redisClient) {
+      try {
+        await redisClient
+          .quit()
+          .catch((e) => console.log("Error closing Redis:", e.message));
+      } catch (e) {
+        console.log("Error during Redis quit:", e.message);
+      }
+    }
     redisClient = null;
     return false;
   }
@@ -410,38 +454,70 @@ async function setupApp() {
   }
 
   // Session configuration (with or without Redis)
-  app.use(
-    session({
-      store: sessionStore, // Will be null if Redis connection failed or disabled
-      secret: process.env.SESSION_SECRET || "secret",
-      resave: false,
-      saveUninitialized: false,
-      proxy: true, // Required for Render/Heroku which use proxies
-      cookie: {
-        secure: isProduction, // Use secure cookies in production
-        httpOnly: true,
-        sameSite: isProduction ? "none" : "lax", // For cross-site cookies in production
-        maxAge: 24 * 60 * 60 * 1000, // 24 hours
-        domain: isProduction ? ".onrender.com" : undefined, // Allow cookies across subdomains on Render
-      },
-    })
-  );
+  const sessionOptions = {
+    store: sessionStore, // Will be null if Redis connection failed or disabled
+    secret: process.env.SESSION_SECRET || "secret",
+    resave: false,
+    saveUninitialized: false,
+    proxy: true, // Required for Render/Heroku which use proxies
+    cookie: {
+      secure: isProduction, // Use secure cookies in production
+      httpOnly: true,
+      sameSite: isProduction ? "none" : "lax", // For cross-site cookies in production
+      maxAge: 24 * 60 * 60 * 1000, // 24 hours
+    },
+  };
+
+  // Only set domain in production if needed
+  if (isProduction) {
+    // Don't set domain - let the browser handle it
+    // This is more compatible with different hosting providers
+    console.log("Using production cookie settings");
+  }
+
+  app.use(session(sessionOptions));
 
   // Passport
   initPassport();
   app.use(passport.initialize());
   app.use(passport.session());
 
-  // MongoDB connection
+  // MongoDB connection with timeout
   const mongoUri = process.env.MONGO_URI || "mongodb://localhost:27017/crm";
   try {
-    await mongoose.connect(mongoUri, {
-      useNewUrlParser: true,
-      useUnifiedTopology: true,
-    });
-    console.log(`MongoDB connected to ${mongoUri}`);
+    console.log(
+      `Attempting to connect to MongoDB at ${mongoUri.split("@").pop()}`
+    );
+
+    // Set a timeout for MongoDB connection
+    const connectWithTimeout = async (uri, options, timeout) => {
+      return Promise.race([
+        mongoose.connect(uri, options),
+        new Promise((_, reject) =>
+          setTimeout(
+            () => reject(new Error("MongoDB connection timeout")),
+            timeout
+          )
+        ),
+      ]);
+    };
+
+    await connectWithTimeout(
+      mongoUri,
+      {
+        useNewUrlParser: true,
+        useUnifiedTopology: true,
+        serverSelectionTimeoutMS: 10000, // 10 seconds
+        connectTimeoutMS: 10000,
+        socketTimeoutMS: 45000,
+      },
+      15000
+    ); // 15 second overall timeout
+
+    console.log(`MongoDB connected to ${mongoUri.split("@").pop()}`);
   } catch (err) {
-    console.error("MongoDB error:", err);
+    console.error("MongoDB connection error:", err.message);
+    console.error("Server will continue without database functionality");
   }
 
   // Placeholder for routes
@@ -487,9 +563,45 @@ async function setupApp() {
   }
 }
 
+// At the very beginning of the file, add this:
+process.on("uncaughtException", (err) => {
+  console.error(
+    "UNCAUGHT EXCEPTION! 💥 Shutting down...",
+    err.name,
+    err.message
+  );
+  console.error(err.stack);
+  // Don't exit the process in production, just log the error
+  if (process.env.NODE_ENV !== "production") {
+    process.exit(1);
+  }
+});
+
+process.on("unhandledRejection", (err) => {
+  console.error("UNHANDLED REJECTION! 💥", err.name, err.message);
+  console.error(err.stack);
+  // Don't exit the process in production, just log the error
+  if (process.env.NODE_ENV !== "production") {
+    process.exit(1);
+  }
+});
+
 // Start the application
 setupApp().catch((err) => {
-  console.error("Failed to start application:", err);
+  console.error("Failed to start application:", err.name, err.message);
+  console.error(err.stack);
+
+  // Even if setup fails, start the server to prevent 502 errors
+  const PORT = process.env.PORT || 5003;
+  if (process.env.NODE_ENV !== "test") {
+    app.get("*", (req, res) => {
+      res.status(200).send("CRMspace API - Limited functionality mode");
+    });
+
+    app.listen(PORT, () =>
+      console.log(`Server running in limited mode on port ${PORT}`)
+    );
+  }
 });
 
 export default app;

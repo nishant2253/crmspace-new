@@ -62,6 +62,9 @@ const logoVariants = {
 export default function Navbar() {
   const location = useLocation();
 
+  // Create motion component for Link
+  const MotionLink = motion.create(Link);
+
   return (
     <motion.div
       className="w-64 bg-white border-r relative"
@@ -73,14 +76,13 @@ export default function Navbar() {
         {/* Logo */}
         <div className="h-16 flex items-center px-6 border-b">
           <motion.div variants={logoVariants}>
-            <Link
-              to="/"
+            <motion.div
               className="text-xl font-bold text-blue-600"
               whileHover={{ scale: 1.05 }}
               whileTap={{ scale: 0.95 }}
             >
-              CRMspace
-            </Link>
+              <Link to="/">CRMspace</Link>
+            </motion.div>
           </motion.div>
         </div>
 

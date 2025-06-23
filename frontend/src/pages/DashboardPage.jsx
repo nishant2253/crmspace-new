@@ -11,7 +11,7 @@ import { Spinner } from "../components/ui/spinner";
 import { motion } from "framer-motion";
 
 // Convert regular components to motion components
-const MotionCard = motion(Card);
+const MotionCard = motion.create(Card);
 
 const statsCards = [
   {

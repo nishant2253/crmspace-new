@@ -13,26 +13,12 @@ services:
         value: 10000
       - key: USE_REDIS
         value: true
-      - key: SESSION_SECRET
-        fromGroup: crmspace-env
-      - key: MONGO_URI
-        fromGroup: crmspace-env
-      - key: REDIS_URL
-        fromGroup: crmspace-env
-      - key: GOOGLE_CLIENT_ID
-        fromGroup: crmspace-env
-      - key: GOOGLE_CLIENT_SECRET
-        fromGroup: crmspace-env
       - key: GOOGLE_CALLBACK_URL
         value: https://crmspace-backend.onrender.com/auth/google/callback
       - key: FRONTEND_URL
         value: https://crmspace-frontend.onrender.com
-      - key: OPENAI_API_KEY
-        fromGroup: crmspace-env
-      - key: NEBIUS_API_KEY
-        fromGroup: crmspace-env
-      - key: GITHUB_TOKEN
-        fromGroup: crmspace-env
+    envVarGroups:
+      - crmspace-env
 
   # Frontend web app
   - type: web
@@ -57,36 +43,26 @@ services:
         value: production
       - key: USE_REDIS
         value: true
-      - key: MONGO_URI
-        fromGroup: crmspace-env
-      - key: REDIS_URL
-        fromGroup: crmspace-env
+    envVarGroups:
+      - crmspace-env
 
 # Environment variable groups to avoid repetition
 envVarGroups:
   - name: crmspace-env
     envVars:
       - key: SESSION_SECRET
-        # You'll need to set this in the Render dashboard
         value: your-session-secret
       - key: MONGO_URI
-        # You'll need to set this in the Render dashboard
         value: mongodb+srv://username:password@cluster.mongodb.net/crm
       - key: REDIS_URL
-        # You'll need to set this in the Render dashboard
         value: redis://default:password@host:port
       - key: GOOGLE_CLIENT_ID
-        # You'll need to set this in the Render dashboard
         value: your-google-client-id
       - key: GOOGLE_CLIENT_SECRET
-        # You'll need to set this in the Render dashboard
         value: your-google-client-secret
       - key: OPENAI_API_KEY
-        # You'll need to set this in the Render dashboard
         value: your-openai-api-key
       - key: NEBIUS_API_KEY
-        # You'll need to set this in the Render dashboard
         value: your-nebius-api-key
       - key: GITHUB_TOKEN
-        # You'll need to set this in the Render dashboard
         value: your-github-token

@@ -17,8 +17,22 @@ services:
         value: https://crmspace-backend.onrender.com/auth/google/callback
       - key: FRONTEND_URL
         value: https://crmspace-frontend.onrender.com
-    envVarGroups:
-      - crmspace-env
+      - key: SESSION_SECRET
+        value: your-session-secret
+      - key: MONGO_URI
+        value: mongodb+srv://username:password@cluster.mongodb.net/crm
+      - key: REDIS_URL
+        value: redis://default:password@host:port
+      - key: GOOGLE_CLIENT_ID
+        value: your-google-client-id
+      - key: GOOGLE_CLIENT_SECRET
+        value: your-google-client-secret
+      - key: OPENAI_API_KEY
+        value: your-openai-api-key
+      - key: NEBIUS_API_KEY
+        value: your-nebius-api-key
+      - key: GITHUB_TOKEN
+        value: your-github-token
 
   # Frontend web app
   - type: web
@@ -43,26 +57,9 @@ services:
         value: production
       - key: USE_REDIS
         value: true
-    envVarGroups:
-      - crmspace-env
-
-# Environment variable groups to avoid repetition
-envVarGroups:
-  - name: crmspace-env
-    envVars:
       - key: SESSION_SECRET
         value: your-session-secret
       - key: MONGO_URI
         value: mongodb+srv://username:password@cluster.mongodb.net/crm
       - key: REDIS_URL
         value: redis://default:password@host:port
-      - key: GOOGLE_CLIENT_ID
-        value: your-google-client-id
-      - key: GOOGLE_CLIENT_SECRET
-        value: your-google-client-secret
-      - key: OPENAI_API_KEY
-        value: your-openai-api-key
-      - key: NEBIUS_API_KEY
-        value: your-nebius-api-key
-      - key: GITHUB_TOKEN
-        value: your-github-token

@@ -16,6 +16,10 @@ export const loginWithGoogle = () => {
   window.location.href = `${API_BASE_URL}/auth/google`;
 };
 
+export const loginAsGuest = () => {
+  window.location.href = `${API_BASE_URL}/auth/guest`;
+};
+
 export const logout = async () => {
   try {
     await api.get("/auth/logout");

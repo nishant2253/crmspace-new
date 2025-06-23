@@ -41,8 +41,11 @@ export function AuthProvider({ children }) {
     }
   }, [user, loading, navigate, location.pathname]);
 
+  // Check if the current user is a guest
+  const isGuestUser = user && user.isGuest === true;
+
   return (
-    <AuthContext.Provider value={{ user, loading, logout }}>
+    <AuthContext.Provider value={{ user, loading, logout, isGuestUser }}>
       {children}
     </AuthContext.Provider>
   );

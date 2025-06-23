@@ -88,7 +88,7 @@ const avatarVariants = {
 
 export default function Header() {
   const location = useLocation();
-  const { user, logout } = useAuth();
+  const { user, logout, isGuestUser } = useAuth();
 
   const currentPage =
     navigation.find((item) => item.href === location.pathname)?.name ||
@@ -123,9 +123,9 @@ export default function Header() {
               className="flex items-center gap-2"
               whileHover={{ scale: 1.05 }}
             >
-              {user.avatar ? (
+              {user.picture ? (
                 <motion.img
-                  src={user.avatar}
+                  src={user.picture}
                   alt={user.name}
                   className="w-8 h-8 rounded-full"
                   variants={avatarVariants}
@@ -142,7 +142,14 @@ export default function Header() {
                   {user.name ? user.name[0] : "U"}
                 </motion.div>
               )}
-              <span className="text-sm font-medium">{user.name}</span>
+              <div className="flex flex-col">
+                <span className="text-sm font-medium">{user.name}</span>
+                {isGuestUser && (
+                  <span className="text-xs text-gray-500 bg-gray-100 px-1 rounded">
+                    Guest Mode
+                  </span>
+                )}
+              </div>
             </motion.div>
             <motion.div
               variants={buttonVariants}

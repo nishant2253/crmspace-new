@@ -1,0 +1,11 @@
+# Redis Configuration (Upstash)
+# Option 1: Connection URL (recommended for Upstash)
+REDIS_URL=redis://default:password@exact-koi-10740.upstash.io:6379
+
+# Option 2: Individual parameters (alternative)
+REDIS_HOST=exact-koi-10740.upstash.io
+REDIS_PORT=6379
+REDIS_PASSWORD=your_redis_password
+
+# For Render Deployment
+# Update your .env variables on Render to include these with your actual values 

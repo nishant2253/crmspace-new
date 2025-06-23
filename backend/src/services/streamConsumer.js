@@ -301,17 +301,80 @@ async function processCampaignDeliveryStreams() {
 }
 
 async function main() {
-  await connectMongo();
+  try {
+    console.log("Starting stream consumer service...");
+    await connectMongo();
 
-  // Setup consumer groups before processing
-  await setupConsumerGroups();
+    let retries = 0;
+    const maxRetries = 10;
+    const retryDelay = 5000; // 5 seconds
 
-  console.log("Starting stream processors...");
-  await Promise.all([
-    processCustomerStream(),
-    processOrderStream(),
-    processCampaignDeliveryStreams(),
-  ]);
+    // Connect to Redis with retry logic
+    while (retries < maxRetries) {
+      try {
+        await redisClient.ping();
+        console.log("Redis connected successfully");
+        break;
+      } catch (err) {
+        retries++;
+        console.log(
+          `Redis connection failed (${retries}/${maxRetries}): ${err.message}`
+        );
+
+        if (retries >= maxRetries) {
+          throw new Error("Max Redis connection retries exceeded");
+        }
+
+        await new Promise((resolve) => setTimeout(resolve, retryDelay));
+      }
+    }
+
+    await setupConsumerGroups();
+
+    // Start processing streams in parallel
+    console.log("Starting stream processors...");
+
+    // Use Promise.all to run all processors in parallel but wrap each in a self-healing function
+    Promise.all([
+      runWithRecovery(processCustomerStream, "Customer Stream"),
+      runWithRecovery(processOrderStream, "Order Stream"),
+      runWithRecovery(
+        processCampaignDeliveryStreams,
+        "Campaign Delivery Streams"
+      ),
+    ]);
+
+    console.log("All stream processors started");
+  } catch (err) {
+    console.error("Fatal error in stream consumer:", err);
+    process.exit(1);
+  }
 }
 
-main().catch(console.error);
+// Helper function to make stream processors resilient
+async function runWithRecovery(processFn, processorName) {
+  while (true) {
+    try {
+      console.log(`Starting ${processorName} processor`);
+      await processFn();
+    } catch (err) {
+      console.error(`Error in ${processorName} processor:`, err);
+      console.log(`Restarting ${processorName} processor in 5 seconds...`);
+      await new Promise((resolve) => setTimeout(resolve, 5000));
+    }
+  }
+}
+
+// Handle termination signals
+process.on("SIGTERM", async () => {
+  console.log("SIGTERM received, shutting down gracefully");
+  try {
+    await redisClient.quit();
+    await mongoose.disconnect();
+  } catch (err) {
+    console.error("Error during graceful shutdown:", err);
+  }
+  process.exit(0);
+});
+
+main();

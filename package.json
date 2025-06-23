@@ -4,10 +4,10 @@
     "uuid": "^11.1.0"
   },
   "scripts": {
-    "start": "concurrently \"cd backend && npm run dev\" \"cd frontend && npm run dev\" \"node backend/src/service/consumerstream.js\"",
+    "start": "concurrently \"cd backend && npm run dev\" \"cd frontend && npm run dev\" \"node backend/src/services/streamConsumer.js\"",
     "stop": "node backend/src/utils/clearDatabase.js",
-    "reset:redis": "node backend/src/service/resetStreams.js",
-    "reset:all": "concurrently \"node backend/src/utils/clearDatabase.js\" \"node backend/src/service/resetStreams.js\""
+    "reset:redis": "node backend/src/services/resetStreams.js",
+    "reset:all": "concurrently \"node backend/src/utils/clearDatabase.js\" \"node backend/src/services/resetStreams.js\""
   },
   "devDependencies": {
     "concurrently": "^8.2.2"

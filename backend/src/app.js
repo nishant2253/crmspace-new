@@ -6,6 +6,7 @@ import cors from "cors";
 import morgan from "morgan";
 import dotenv from "dotenv";
 import { createClient } from "redis";
+import RedisStore from "connect-redis";
 import router from "./routes/index.js";
 import { initPassport } from "./services/passport.js";
 import path from "path";
@@ -42,110 +43,160 @@ app.use(
 );
 app.use(morgan(isProduction ? "combined" : "dev"));
 
-// Session configuration
-app.use(
-  session({
-    secret: process.env.SESSION_SECRET || "secret",
-    resave: false,
-    saveUninitialized: false,
-    cookie: {
-      secure: isProduction, // Use secure cookies in production
-      httpOnly: true,
-      sameSite: isProduction ? "none" : "lax", // For cross-site cookies in production
-    },
-  })
-);
+// Redis client setup (with fallback to memory store if Redis is not available)
+let redisClient = null;
+let sessionStore = null;
 
-// Passport
-initPassport();
-app.use(passport.initialize());
-app.use(passport.session());
+// Check if Redis is explicitly disabled
+const useRedis = process.env.USE_REDIS !== "false";
 
-// MongoDB connection
-const mongoUri = process.env.MONGO_URI || "mongodb://localhost:27017/crm";
-mongoose
-  .connect(mongoUri, {
-    useNewUrlParser: true,
-    useUnifiedTopology: true,
-  })
-  .then(() => console.log(`MongoDB connected to ${mongoUri}`))
-  .catch((err) => console.error("MongoDB error:", err));
+// Try to connect to Redis, but don't crash if it fails
+async function setupRedis() {
+  if (!useRedis) {
+    console.log("Redis disabled by environment variable, using memory store");
+    return false;
+  }
 
-// Redis client
-let redisClient;
-try {
-  redisClient = createClient({
-    url: `redis://${process.env.REDIS_HOST}:${process.env.REDIS_PORT}`,
-  });
-  redisClient
-    .connect()
-    .then(() => console.log("Redis connected"))
-    .catch((err) => console.error("Redis error:", err));
-} catch (err) {
-  console.error("Redis initialization error:", err);
-}
-
-// Placeholder for routes
-app.get("/", (req, res) => {
-  res.send("CRMspace Platform API");
-});
-
-// Serve uploaded campaign images
-app.use(
-  "/uploads/campaigns",
-  express.static(path.join(process.cwd(), "uploads", "campaigns"))
-);
-
-app.use(router);
-
-const PORT = process.env.PORT || 5003;
-if (process.env.NODE_ENV !== "test") {
-  app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
-}
-
-// Add shutdown handler to clear database on exit (development only)
-if (!isProduction) {
-  process.on("SIGINT", async () => {
-    console.log("Server shutting down, clearing database and Redis streams...");
-    try {
-      // Clear Redis streams
-      if (redisClient) {
-        try {
-          const streamKeys = await redisClient.keys("stream:*");
-          if (streamKeys && streamKeys.length > 0) {
-            for (const key of streamKeys) {
-              await redisClient.del(key);
-              console.log(`Cleared Redis stream: ${key}`);
+  try {
+    // Check if REDIS_URL is provided (preferred for production/Upstash)
+    if (process.env.REDIS_URL) {
+      redisClient = createClient({
+        url: process.env.REDIS_URL,
+        socket: {
+          reconnectStrategy: (retries) => {
+            if (retries > 10) {
+              console.log("Redis max retries reached, using memory store");
+              return false; // stop retrying
             }
-          }
-          console.log("Redis streams cleared successfully");
-        } catch (redisErr) {
-          console.error("Error clearing Redis streams:", redisErr);
-        }
-      }
-
-      // Get all collections and drop them
-      const collections = Object.keys(mongoose.connection.collections);
-      for (const collectionName of collections) {
-        const collection = mongoose.connection.collections[collectionName];
-        await collection.drop();
-      }
-      console.log("Database cleared successfully");
-    } catch (err) {
-      console.error("Error clearing database:", err);
-    } finally {
-      // Close Redis connection
-      if (redisClient) {
-        await redisClient.quit();
-        console.log("Redis connection closed");
-      }
-
-      // Close MongoDB connection
-      await mongoose.connection.close();
-      console.log("MongoDB connection closed");
-      process.exit(0);
+            return Math.min(retries * 50, 1000); // wait time between retries
+          },
+        },
+      });
+    } else {
+      // Fallback to individual connection parameters
+      redisClient = createClient({
+        url: `redis://${process.env.REDIS_HOST || "localhost"}:${
+          process.env.REDIS_PORT || 6379
+        }`,
+        socket: {
+          reconnectStrategy: (retries) => {
+            if (retries > 10) {
+              console.log("Redis max retries reached, using memory store");
+              return false; // stop retrying
+            }
+            return Math.min(retries * 50, 1000); // wait time between retries
+          },
+        },
+      });
     }
-  });
+
+    // Handle Redis errors
+    redisClient.on("error", (err) => {
+      console.log("Redis error:", err.message);
+    });
+
+    // Try to connect
+    await redisClient.connect();
+    console.log("Redis connected successfully");
+
+    // Create Redis store for session
+    sessionStore = new RedisStore({ client: redisClient });
+    console.log("Redis session store initialized");
+
+    return true;
+  } catch (err) {
+    console.log(`Redis connection failed: ${err.message}`);
+    console.log("Using memory store for session instead");
+    redisClient = null;
+    return false;
+  }
 }
+
+// Setup session middleware with appropriate store
+async function setupApp() {
+  // Try to connect to Redis first if not disabled
+  if (useRedis) {
+    await setupRedis();
+  }
+
+  // Session configuration (with or without Redis)
+  app.use(
+    session({
+      store: sessionStore, // Will be null if Redis connection failed or disabled
+      secret: process.env.SESSION_SECRET || "secret",
+      resave: false,
+      saveUninitialized: false,
+      cookie: {
+        secure: isProduction, // Use secure cookies in production
+        httpOnly: true,
+        sameSite: isProduction ? "none" : "lax", // For cross-site cookies in production
+      },
+    })
+  );
+
+  // Passport
+  initPassport();
+  app.use(passport.initialize());
+  app.use(passport.session());
+
+  // MongoDB connection
+  const mongoUri = process.env.MONGO_URI || "mongodb://localhost:27017/crm";
+  try {
+    await mongoose.connect(mongoUri, {
+      useNewUrlParser: true,
+      useUnifiedTopology: true,
+    });
+    console.log(`MongoDB connected to ${mongoUri}`);
+  } catch (err) {
+    console.error("MongoDB error:", err);
+  }
+
+  // Placeholder for routes
+  app.get("/", (req, res) => {
+    res.send("CRMspace Platform API");
+  });
+
+  // Serve uploaded campaign images
+  app.use(
+    "/uploads/campaigns",
+    express.static(path.join(process.cwd(), "uploads", "campaigns"))
+  );
+
+  app.use(router);
+
+  const PORT = process.env.PORT || 5003;
+  if (process.env.NODE_ENV !== "test") {
+    app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
+  }
+
+  // Add shutdown handler to clear database on exit (development only)
+  if (!isProduction) {
+    process.on("SIGINT", async () => {
+      console.log("Server shutting down...");
+      try {
+        // Close Redis connection if it exists
+        if (redisClient && redisClient.isOpen) {
+          await redisClient
+            .quit()
+            .catch((err) => console.error("Redis quit error:", err.message));
+          console.log("Redis connection closed");
+        }
+
+        // Close MongoDB connection
+        await mongoose.connection.close();
+        console.log("MongoDB connection closed");
+      } catch (err) {
+        console.error("Error during shutdown:", err.message);
+      } finally {
+        process.exit(0);
+      }
+    });
+  }
+}
+
+// Start the application
+setupApp().catch((err) => {
+  console.error("Failed to start application:", err);
+});
 
 export default app;

@@ -7,9 +7,9 @@
     "start": "node src/app.js",
     "dev": "nodemon src/app.js",
     "reset:db": "node src/utils/clearDatabase.js",
-    "reset:redis": "node src/service/resetStreams.js",
-    "reset:consumer-groups": "node src/service/resetConsumerGroups.js",
-    "reset:all": "concurrently \"node src/utils/clearDatabase.js\" \"node src/service/resetStreams.js\" \"node src/service/resetConsumerGroups.js\""
+    "reset:redis": "node src/services/resetStreams.js",
+    "reset:consumer-groups": "node src/services/resetConsumerGroups.js",
+    "reset:all": "concurrently \"node src/utils/clearDatabase.js\" \"node src/services/resetStreams.js\" \"node src/services/resetConsumerGroups.js\""
   },
   "dependencies": {
     "@azure-rest/ai-inference": "^1.0.0-beta.6",

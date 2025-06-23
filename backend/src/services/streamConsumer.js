@@ -7,7 +7,52 @@ import Customer from "../models/Customer.js";
 import Order from "../models/Order.js";
 import CommunicationLog from "../models/CommunicationLog.js";
 
-const redisClient = getRedisClient();
+// Check if Redis is explicitly disabled
+const useRedis = process.env.USE_REDIS !== "false";
+
+// Create a safer Redis client that won't crash on errors
+let redisClient;
+try {
+  // Only create Redis client if not disabled
+  if (useRedis) {
+    redisClient = getRedisClient();
+
+    // Add extra safety by catching any unhandled errors
+    process.on("uncaughtException", (err) => {
+      if (err.message.includes("Redis") || err.message.includes("ECONNRESET")) {
+        console.log(`Caught unhandled Redis error: ${err.message}`);
+      } else {
+        console.error("Unhandled exception:", err);
+        process.exit(1);
+      }
+    });
+  } else {
+    console.log(
+      "Redis disabled by environment variable. Stream consumer will not function."
+    );
+    // Create a dummy client that won't throw errors
+    redisClient = {
+      ping: () => Promise.reject(new Error("Redis disabled")),
+      xgroup: () => Promise.resolve(),
+      xreadgroup: () => Promise.resolve(null),
+      xack: () => Promise.resolve(),
+      keys: () => Promise.resolve([]),
+      on: () => {},
+    };
+  }
+} catch (err) {
+  console.error("Error initializing Redis client:", err.message);
+  // Create a dummy client that won't throw errors
+  redisClient = {
+    ping: () => Promise.reject(new Error("Redis not available")),
+    xgroup: () => Promise.resolve(),
+    xreadgroup: () => Promise.resolve(null),
+    xack: () => Promise.resolve(),
+    keys: () => Promise.resolve([]),
+    on: () => {},
+  };
+}
+
 const CONSUMER_GROUP = "crm-consumer-group";
 const CONSUMER_NAME = "consumer-1";
 

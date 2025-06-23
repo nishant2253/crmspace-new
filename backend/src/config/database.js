@@ -1,45 +1,24 @@
 import mongoose from "mongoose";
-import dotenv from "dotenv";
 
-dotenv.config();
-
-// Cache the MongoDB connection
-let cachedDb = null;
-
-async function connectToDatabase() {
-  // If we have a cached connection, return it
-  if (cachedDb && mongoose.connection.readyState === 1) {
-    console.log("Using cached database connection");
-    return cachedDb;
-  }
-
-  // Get MongoDB URI from environment variables
-  const mongoUri = process.env.MONGO_URI || "mongodb://localhost:27017/crm";
-  console.log(`Connecting to MongoDB at ${mongoUri.split("@")[1]}`); // Log without credentials
-
+const connectDB = async () => {
   try {
-    // Configure MongoDB connection options for serverless environment
-    const options = {
+    // Use in-memory storage for development
+    const connectionOptions = {
       useNewUrlParser: true,
       useUnifiedTopology: true,
-      serverSelectionTimeoutMS: 30000, // Increase timeout to 30 seconds
-      socketTimeoutMS: 45000, // Increase socket timeout
-      connectTimeoutMS: 30000, // Increase connect timeout
-      keepAlive: true,
-      keepAliveInitialDelay: 300000, // 5 minutes
+      inMemory: true, // Enable in-memory storage
+      inMemorySizeGB: 1, // Allocate 1GB for in-memory storage
     };
 
-    // Connect to MongoDB
-    const connection = await mongoose.connect(mongoUri, options);
-    console.log(`MongoDB connected successfully to ${mongoUri.split("@")[1]}`);
-
-    // Cache the connection
-    cachedDb = connection;
-    return connection;
+    await mongoose.connect(
+      process.env.MONGODB_URI || "mongodb://localhost:27017/crm",
+      connectionOptions
+    );
+    console.log("MongoDB connected successfully");
   } catch (err) {
     console.error("MongoDB connection error:", err);
-    throw err;
+    process.exit(1);
   }
-}
+};
 
-export default connectToDatabase;
+export default connectDB;

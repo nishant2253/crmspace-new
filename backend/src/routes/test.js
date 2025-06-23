@@ -2,10 +2,15 @@ import express from "express";
 import Customer from "../models/Customer.js";
 import mongoose from "mongoose";
 import { buildQueryFromRules } from "../controllers/segmentController.js";
+import {
+  segmentRulesFromText,
+  campaignSummary,
+  campaignMessageFromName,
+  campaignImageGeneration,
+} from "../controllers/aiController.js";
 import fs from "fs";
 import path from "path";
 import { fileURLToPath } from "url";
-import User from "../models/User.js";
 
 // Get the directory name
 const __filename = fileURLToPath(import.meta.url);
@@ -500,69 +505,6 @@ router.options("/remove-mock-data", (req, res) => {
   );
   res.header("Access-Control-Allow-Credentials", "true");
   res.sendStatus(200);
-});
-
-// Test route - no auth required
-router.get("/", (req, res) => {
-  res.json({ message: "Test route working!" });
-});
-
-// Test database connection
-router.get("/db-status", async (req, res) => {
-  try {
-    // Check MongoDB connection status
-    const status = mongoose.connection.readyState;
-    const statusText = [
-      "disconnected",
-      "connected",
-      "connecting",
-      "disconnecting",
-    ][status];
-
-    // Try to count users as a simple database operation
-    let userCount = null;
-    let error = null;
-
-    try {
-      userCount = await User.countDocuments();
-    } catch (err) {
-      error = err.message;
-    }
-
-    res.json({
-      status: statusText,
-      readyState: status,
-      dbName: mongoose.connection.db?.databaseName || null,
-      userCount,
-      error,
-      mongooseVersion: mongoose.version,
-      nodeEnv: process.env.NODE_ENV,
-      mongoUriConfigured: !!process.env.MONGO_URI,
-    });
-  } catch (err) {
-    res.status(500).json({ error: err.message });
-  }
-});
-
-// Test authentication without requiring it
-router.get("/auth-status", (req, res) => {
-  res.json({
-    isAuthenticated: req.isAuthenticated(),
-    user: req.user
-      ? {
-          id: req.user.id,
-          email: req.user.email,
-          name: req.user.name,
-        }
-      : null,
-    session: req.session
-      ? {
-          id: req.sessionID,
-          cookie: req.session.cookie,
-        }
-      : null,
-    cookies: req.headers.cookie,
-  });
 });
 
 export default router;

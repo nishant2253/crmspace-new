@@ -1,79 +1,32 @@
 import React, { createContext, useContext, useEffect, useState } from "react";
-import { authAPI, testAPI } from "../services/api";
+import { getCurrentUser, logout as apiLogout } from "../services/api";
 import { useNavigate, useLocation } from "react-router-dom";
 
 const AuthContext = createContext();
 
-export const AuthProvider = ({ children }) => {
+export function AuthProvider({ children }) {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
-  const [debugInfo, setDebugInfo] = useState(null);
   const navigate = useNavigate();
   const location = useLocation();
 
-  // Initialize auth state
+  // Fetch user on mount
   useEffect(() => {
-    const initAuth = async () => {
-      try {
-        console.log("Initializing auth state...");
-        setLoading(true);
-        const userData = await authAPI.getCurrentUser();
-        console.log("User data received:", userData);
-        setUser(userData);
-        setError(null);
-      } catch (err) {
-        console.error("Authentication error:", err);
-        setUser(null);
-        setError(err.message);
-
-        // Try to get debug info
-        try {
-          const authStatus = await testAPI.checkAuthStatus();
-          const dbStatus = await testAPI.checkDbStatus();
-          setDebugInfo({ authStatus, dbStatus });
-          console.log("Debug info:", { authStatus, dbStatus });
-        } catch (debugErr) {
-          console.error("Failed to get debug info:", debugErr);
-        }
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    initAuth();
+    getCurrentUser()
+      .then(setUser)
+      .catch(() => setUser(null))
+      .finally(() => setLoading(false));
   }, []);
 
-  // Login with Google
-  const loginWithGoogle = () => {
-    console.log("Initiating Google login...");
-    authAPI.loginWithGoogle();
-  };
-
-  // Logout
+  // Improved logout: clear user, redirect, handle errors
   const logout = async () => {
     try {
-      console.log("Logging out...");
-      await authAPI.logout();
+      await apiLogout();
+    } catch (err) {
+      // Ignore network errors on logout
+    } finally {
       setUser(null);
-      console.log("Logout successful");
-    } catch (err) {
-      console.error("Logout error:", err);
-      setError(err.message);
-    }
-  };
-
-  // Check auth status for debugging
-  const checkAuthStatus = async () => {
-    try {
-      const authStatus = await testAPI.checkAuthStatus();
-      const dbStatus = await testAPI.checkDbStatus();
-      setDebugInfo({ authStatus, dbStatus });
-      return { authStatus, dbStatus };
-    } catch (err) {
-      console.error("Failed to check auth status:", err);
-      setError(err.message);
-      return null;
+      navigate("/get-started", { replace: true });
     }
   };
 
@@ -88,27 +41,13 @@ export const AuthProvider = ({ children }) => {
     }
   }, [user, loading, navigate, location.pathname]);
 
-  // Context value
-  const value = {
-    user,
-    loading,
-    error,
-    debugInfo,
-    loginWithGoogle,
-    logout,
-    checkAuthStatus,
-    isAuthenticated: !!user,
-  };
+  return (
+    <AuthContext.Provider value={{ user, loading, logout }}>
+      {children}
+    </AuthContext.Provider>
+  );
+}
 
-  return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
-};
-
-export const useAuth = () => {
-  const context = useContext(AuthContext);
-  if (!context) {
-    throw new Error("useAuth must be used within an AuthProvider");
-  }
-  return context;
-};
-
-export default AuthContext;
+export function useAuth() {
+  return useContext(AuthContext);
+}

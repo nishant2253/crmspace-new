@@ -12,10 +12,22 @@ router.get(
 // Google OAuth callback
 router.get(
   "/google/callback",
-  passport.authenticate("google", { failureRedirect: "/" }),
+  passport.authenticate("google", {
+    failureRedirect: process.env.FRONTEND_URL || "http://localhost:5173",
+    session: true,
+  }),
   (req, res) => {
-    // Redirect to frontend after login
-    res.redirect(process.env.FRONTEND_URL || "http://localhost:5173");
+    // Log successful authentication
+    console.log("Google authentication successful for user:", req.user.email);
+
+    // Make sure session is saved before redirecting
+    req.session.save((err) => {
+      if (err) {
+        console.error("Session save error:", err);
+      }
+      // Redirect to frontend after login
+      res.redirect(process.env.FRONTEND_URL || "http://localhost:5173");
+    });
   }
 );
 
@@ -28,9 +40,15 @@ router.get("/logout", (req, res) => {
 
 // Get current user
 router.get("/me", (req, res) => {
+  console.log("Session ID:", req.sessionID);
+  console.log("Is authenticated:", req.isAuthenticated());
+  console.log("Session:", req.session);
+
   if (req.isAuthenticated()) {
+    console.log("Authenticated user:", req.user.email);
     res.json(req.user);
   } else {
+    console.log("User not authenticated");
     res.status(401).json({ error: "Not authenticated" });
   }
 });

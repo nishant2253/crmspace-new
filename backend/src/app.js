@@ -34,15 +34,14 @@ app.use(express.urlencoded({ extended: true, limit: "50mb" }));
 app.use(
   cors({
     origin: [
-      process.env.FRONTEND_URL ||
-        (isProduction
-          ? "https://crmspace-new.vercel.app"
-          : "http://localhost:5173"),
-      "http://localhost:5173", // Explicitly add this to ensure it works
+      process.env.FRONTEND_URL || "https://crmspace-frontend.onrender.com",
+      "http://localhost:5173", // For local development
+      "https://crmspace-frontend.onrender.com", // Explicitly add production frontend URL
     ],
     credentials: true,
     methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
     allowedHeaders: ["Content-Type", "Authorization"],
+    exposedHeaders: ["Set-Cookie"],
   })
 );
 app.use(morgan(isProduction ? "combined" : "dev"));
@@ -417,10 +416,13 @@ async function setupApp() {
       secret: process.env.SESSION_SECRET || "secret",
       resave: false,
       saveUninitialized: false,
+      proxy: true, // Required for Render/Heroku which use proxies
       cookie: {
         secure: isProduction, // Use secure cookies in production
         httpOnly: true,
         sameSite: isProduction ? "none" : "lax", // For cross-site cookies in production
+        maxAge: 24 * 60 * 60 * 1000, // 24 hours
+        domain: isProduction ? ".onrender.com" : undefined, // Allow cookies across subdomains on Render
       },
     })
   );

@@ -1,5 +1,8 @@
 import React from "react";
 import { loginWithGoogle, loginAsGuest } from "../services/api";
+import { FadeIn } from "../components/ui/fade-in";
+import { AnimatedButton } from "../components/ui/animated-button";
+import { motion } from "framer-motion";
 
 export default function LoginPage() {
   const handleLogin = () => {
@@ -11,14 +14,33 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="flex flex-col items-center justify-center min-h-[60vh]">
-      <h1 className="text-2xl font-bold mb-6">Login to CRMspace</h1>
-      <div className="flex flex-col sm:flex-row gap-4">
-        <button
+    <FadeIn className="flex flex-col items-center justify-center min-h-[60vh]">
+      <motion.h1
+        className="text-3xl font-bold mb-6 bg-clip-text text-transparent bg-gradient-to-r from-blue-600 to-indigo-600"
+        initial={{ opacity: 0, y: -20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 0.2, duration: 0.5 }}
+      >
+        Welcome to CRMspace
+      </motion.h1>
+
+      <motion.div
+        className="flex flex-col sm:flex-row gap-4"
+        initial={{ opacity: 0, scale: 0.9 }}
+        animate={{ opacity: 1, scale: 1 }}
+        transition={{ delay: 0.4, duration: 0.5 }}
+      >
+        <AnimatedButton
           onClick={handleLogin}
           className="bg-blue-600 text-white px-6 py-2 rounded shadow hover:bg-blue-700 flex items-center gap-2"
         >
-          <svg width="20" height="20" viewBox="0 0 48 48">
+          <motion.svg
+            width="20"
+            height="20"
+            viewBox="0 0 48 48"
+            whileHover={{ rotate: 360 }}
+            transition={{ duration: 0.5 }}
+          >
             <g>
               <path
                 fill="#4285F4"
@@ -37,14 +59,15 @@ export default function LoginPage() {
                 d="M43.6 20.5H42V20H24v8h11.3c-1.1 3.1-3.6 5.7-6.6 7.2l6.6 5.4C41.9 38.2 44 32.7 44 27c0-1.1-.1-2.2-.4-3.2z"
               />
             </g>
-          </svg>
+          </motion.svg>
           Sign in with Google
-        </button>
-        <button
+        </AnimatedButton>
+
+        <AnimatedButton
           onClick={handleGuestLogin}
           className="bg-gray-600 text-white px-6 py-2 rounded shadow hover:bg-gray-700 flex items-center gap-2"
         >
-          <svg
+          <motion.svg
             xmlns="http://www.w3.org/2000/svg"
             width="20"
             height="20"
@@ -54,16 +77,25 @@ export default function LoginPage() {
             strokeWidth="2"
             strokeLinecap="round"
             strokeLinejoin="round"
+            whileHover={{ scale: 1.2 }}
+            transition={{ duration: 0.3 }}
           >
             <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
             <circle cx="12" cy="7" r="4"></circle>
-          </svg>
+          </motion.svg>
           Continue as Guest
-        </button>
-      </div>
-      <p className="mt-4 text-sm text-gray-500">
-        Guest login provides limited access to explore the platform.
-      </p>
-    </div>
+        </AnimatedButton>
+      </motion.div>
+
+      <motion.p
+        className="mt-6 text-sm text-gray-500 max-w-md text-center"
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        transition={{ delay: 0.6, duration: 0.5 }}
+      >
+        Guest login provides limited access to explore the platform. Sign in
+        with Google for full access to all features.
+      </motion.p>
+    </FadeIn>
   );
 }

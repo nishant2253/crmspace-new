@@ -1,17 +1,17 @@
 [
   {
-    "customerId": "<MongoDB ObjectId for Alice Sharma>",
+    "customerId": "<MongoDB ObjectId for Junaid Singh>",
     "orderAmount": 5000,
     "createdAt": "2024-04-28T12:00:00Z"
   },
   {
-    "customerId": "<MongoDB ObjectId for bob Singh>",
-    "orderAmount": 5000,
+    "customerId": "<MongoDB ObjectId for hamid patel>",
+    "orderAmount": 650,
     "createdAt": "2024-04-28T12:00:00Z"
   },
   {
-    "customerId": "<MongoDB ObjectId for carol patel>",
-    "orderAmount": 5000,
+    "customerId": "<MongoDB ObjectId for justin patel>",
+    "orderAmount": 400,
     "createdAt": "2024-04-28T12:00:00Z"
   }
 ]

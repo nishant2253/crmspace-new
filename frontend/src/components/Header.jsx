@@ -4,6 +4,7 @@ import { Button } from "./ui/button";
 import { useAuth } from "../contexts/AuthContext";
 import { loginWithGoogle } from "../services/api";
 import { motion, AnimatePresence } from "framer-motion";
+import { Link } from "react-router-dom";
 
 const navigation = [
   { name: "Dashboard", href: "/" },
@@ -145,7 +146,7 @@ export default function Header() {
               <div className="flex flex-col">
                 <span className="text-sm font-medium">{user.name}</span>
                 {isGuestUser && (
-                  <span className="text-xs text-gray-500 bg-gray-100 px-1 rounded">
+                  <span className="text-xs font-semibold bg-yellow-100 text-yellow-800 px-2 py-0.5 rounded-full">
                     Guest Mode
                   </span>
                 )}

@@ -13,6 +13,9 @@ import {
   BookOpen,
 } from "lucide-react";
 import { motion } from "framer-motion";
+import { Tooltip } from "./ui/tooltip";
+import { FadeIn } from "./ui/fade-in";
+import { ScrollReveal } from "./ui/scroll-reveal";
 
 const navigation = [
   { name: "Get Started", href: "/get-started", icon: BookOpen },
@@ -62,9 +65,6 @@ const logoVariants = {
 export default function Navbar() {
   const location = useLocation();
 
-  // Create motion component for Link
-  const MotionLink = motion.create(Link);
-
   return (
     <motion.div
       className="w-64 bg-white border-r relative"
@@ -105,7 +105,7 @@ export default function Navbar() {
         </motion.div>
 
         {/* Navigation */}
-        <nav className="flex-1 px-2 py-4 space-y-1">
+        <FadeIn className="flex-1 px-2 py-4 space-y-1" staggerItems>
           {navigation.map((item, index) => {
             const isActive = location.pathname === item.href;
             return (
@@ -115,66 +115,72 @@ export default function Navbar() {
                 whileHover={{ x: 5 }}
                 custom={index}
               >
-                <Link
-                  to={item.href}
-                  className={cn(
-                    "flex items-center px-4 py-2 text-sm font-medium rounded-md group",
-                    isActive
-                      ? "bg-blue-50 text-blue-600"
-                      : "text-gray-600 hover:bg-gray-50"
-                  )}
-                >
-                  <motion.div
-                    whileHover={!isActive ? { rotate: 10, scale: 1.1 } : {}}
-                    transition={{ type: "spring", stiffness: 400, damping: 10 }}
+                <Tooltip content={`Go to ${item.name}`} position="right">
+                  <Link
+                    to={item.href}
+                    className={cn(
+                      "flex items-center px-4 py-2 text-sm font-medium rounded-md group",
+                      isActive
+                        ? "bg-blue-50 text-blue-600"
+                        : "text-gray-600 hover:bg-gray-50"
+                    )}
                   >
-                    <item.icon
-                      className={cn(
-                        "mr-3 h-5 w-5",
-                        isActive
-                          ? "text-blue-600"
-                          : "text-gray-400 group-hover:text-gray-500"
-                      )}
-                    />
-                  </motion.div>
-                  {item.name}
-                  {isActive && (
                     <motion.div
-                      className="absolute inset-y-0 left-0 w-1 bg-blue-600 rounded-r-md"
-                      layoutId="activeNavIndicator"
-                      initial={{ opacity: 0 }}
-                      animate={{ opacity: 1 }}
-                      exit={{ opacity: 0 }}
+                      whileHover={!isActive ? { rotate: 10, scale: 1.1 } : {}}
                       transition={{
                         type: "spring",
-                        stiffness: 300,
-                        damping: 30,
+                        stiffness: 400,
+                        damping: 10,
                       }}
-                    />
-                  )}
-                </Link>
+                    >
+                      <item.icon
+                        className={cn(
+                          "mr-3 h-5 w-5",
+                          isActive
+                            ? "text-blue-600"
+                            : "text-gray-400 group-hover:text-gray-500"
+                        )}
+                      />
+                    </motion.div>
+                    {item.name}
+                    {isActive && (
+                      <motion.div
+                        className="absolute inset-y-0 left-0 w-1 bg-blue-600 rounded-r-md"
+                        layoutId="activeNavIndicator"
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        exit={{ opacity: 0 }}
+                        transition={{
+                          type: "spring",
+                          stiffness: 300,
+                          damping: 30,
+                        }}
+                      />
+                    )}
+                  </Link>
+                </Tooltip>
               </motion.div>
             );
           })}
-        </nav>
+        </FadeIn>
 
         {/* Admin info */}
-        <motion.div
+        <ScrollReveal
           className="admin-info-nishant absolute bottom-0 left-0 w-full px-4 py-3 border-t bg-blue-50 text-center"
           style={{
             userSelect: "none",
             pointerEvents: "none",
             zIndex: 9999,
           }}
-          initial={{ y: 50, opacity: 0 }}
-          animate={{ y: 0, opacity: 1 }}
-          transition={{ delay: 0.8, duration: 0.5, type: "spring" }}
+          direction="up"
+          delay={0.8}
+          once={true}
         >
           <div className="text-xs font-semibold text-blue-700">
             Project Admin
           </div>
           <div className="text-sm font-bold text-blue-900">Nishant Gupta</div>
-        </motion.div>
+        </ScrollReveal>
       </div>
     </motion.div>
   );

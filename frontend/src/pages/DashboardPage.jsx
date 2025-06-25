@@ -6,12 +6,22 @@ import {
   CardTitle,
 } from "../components/ui/card";
 import { PieChart, Pie, Cell, ResponsiveContainer } from "recharts";
-import { Users, ShoppingCart, Mail, TrendingUp } from "lucide-react";
+import {
+  Users,
+  ShoppingCart,
+  Mail,
+  TrendingUp,
+  AlertTriangle,
+} from "lucide-react";
 import { Spinner } from "../components/ui/spinner";
 import { motion } from "framer-motion";
-
-// Convert regular components to motion components
-const MotionCard = motion.create(Card);
+import { useAuth } from "../contexts/AuthContext";
+import { Link } from "react-router-dom";
+import { FadeIn } from "../components/ui/fade-in";
+import { AnimatedCard } from "../components/ui/animated-card";
+import { AnimatedButton } from "../components/ui/animated-button";
+import { ScrollReveal } from "../components/ui/scroll-reveal";
+import { Tooltip } from "../components/ui/tooltip";
 
 const statsCards = [
   {
@@ -83,55 +93,9 @@ const recentCampaigns = [
   },
 ];
 
-// Animation variants
-const containerVariants = {
-  hidden: { opacity: 0 },
-  show: {
-    opacity: 1,
-    transition: {
-      staggerChildren: 0.1,
-    },
-  },
-};
-
-const itemVariants = {
-  hidden: { opacity: 0, y: 20 },
-  show: {
-    opacity: 1,
-    y: 0,
-    transition: {
-      type: "spring",
-      stiffness: 100,
-      damping: 10,
-    },
-  },
-};
-
-const chartVariants = {
-  hidden: { opacity: 0, scale: 0.9 },
-  show: {
-    opacity: 1,
-    scale: 1,
-    transition: {
-      duration: 0.5,
-      ease: "easeOut",
-    },
-  },
-};
-
-const tableVariants = {
-  hidden: { opacity: 0 },
-  show: {
-    opacity: 1,
-    transition: {
-      delay: 0.4,
-      duration: 0.6,
-    },
-  },
-};
-
 export default function DashboardPage() {
   const [loading, setLoading] = useState(true);
+  const { isGuestUser } = useAuth();
 
   useEffect(() => {
     // Simulate loading data
@@ -157,20 +121,43 @@ export default function DashboardPage() {
   }
 
   return (
-    <div className="p-6">
+    <FadeIn className="p-6">
+      {/* Guest User Warning Banner */}
+      {isGuestUser && (
+        <motion.div
+          className="bg-yellow-50 border-l-4 border-yellow-400 p-4 mb-6 rounded-md"
+          initial={{ opacity: 0, y: -20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.5 }}
+        >
+          <div className="flex">
+            <div className="flex-shrink-0">
+              <AlertTriangle className="h-5 w-5 text-yellow-400" />
+            </div>
+            <div className="ml-3">
+              <p className="text-sm text-yellow-700">
+                <strong>You're using guest mode.</strong> Some features are
+                limited.
+                <Link to="/login" className="font-medium underline ml-1">
+                  Sign in with Google
+                </Link>{" "}
+                for full access.
+              </p>
+            </div>
+          </div>
+        </motion.div>
+      )}
+
       {/* Stats Grid */}
-      <motion.div
+      <FadeIn
         className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6"
-        variants={containerVariants}
-        initial="hidden"
-        animate="show"
+        staggerItems
       >
         {statsCards.map((stat, index) => (
-          <MotionCard
+          <AnimatedCard
             key={index}
             className="hover:shadow-lg transition-shadow duration-300"
-            variants={itemVariants}
-            whileHover={{ y: -5, transition: { duration: 0.2 } }}
+            delay={index * 0.1}
           >
             <CardContent className="flex items-center p-6">
               <div className="flex-1">
@@ -195,200 +182,164 @@ export default function DashboardPage() {
                   {stat.change} vs last month
                 </p>
               </div>
-              <motion.div
-                className={`${stat.color} p-4 rounded-full bg-gray-50`}
-                initial={{ scale: 0 }}
-                animate={{ scale: 1 }}
-                transition={{
-                  type: "spring",
-                  stiffness: 260,
-                  damping: 20,
-                  delay: 0.3 + index * 0.1,
-                }}
-              >
-                <stat.icon size={24} />
-              </motion.div>
+              <Tooltip content={`${stat.title} statistics`}>
+                <motion.div
+                  className={`${stat.color} p-4 rounded-full bg-gray-50`}
+                  initial={{ scale: 0 }}
+                  animate={{ scale: 1 }}
+                  transition={{
+                    type: "spring",
+                    stiffness: 260,
+                    damping: 20,
+                    delay: 0.3 + index * 0.1,
+                  }}
+                >
+                  <stat.icon size={24} />
+                </motion.div>
+              </Tooltip>
             </CardContent>
-          </MotionCard>
+          </AnimatedCard>
         ))}
-      </motion.div>
+      </FadeIn>
 
+      {/* Main Dashboard Content */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Customer Segments */}
-        <motion.div
-          className="lg:col-span-2"
-          variants={chartVariants}
-          initial="hidden"
-          animate="show"
-        >
-          <Card>
+        <ScrollReveal direction="left" className="lg:col-span-1">
+          <Card className="h-full">
             <CardHeader>
               <CardTitle>Customer Segments</CardTitle>
             </CardHeader>
             <CardContent>
-              <motion.div
-                className="h-[300px] flex items-center justify-center"
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                transition={{ delay: 0.3, duration: 0.8 }}
-              >
+              <div className="h-64">
                 <ResponsiveContainer width="100%" height="100%">
                   <PieChart>
                     <Pie
                       data={segmentData}
                       cx="50%"
                       cy="50%"
-                      outerRadius={100}
+                      innerRadius={60}
+                      outerRadius={80}
+                      paddingAngle={2}
                       dataKey="value"
-                      label={({ name, value }) => `${name} ${value}%`}
-                      animationDuration={1500}
                     >
                       {segmentData.map((entry, index) => (
-                        <Cell key={index} fill={entry.color} />
+                        <Cell key={`cell-${index}`} fill={entry.color} />
                       ))}
                     </Pie>
                   </PieChart>
                 </ResponsiveContainer>
-              </motion.div>
-              <motion.div
-                className="flex justify-center gap-4 mt-4"
-                variants={containerVariants}
-                initial="hidden"
-                animate="show"
-              >
+              </div>
+              <div className="mt-4 space-y-2">
                 {segmentData.map((segment, index) => (
-                  <motion.div
+                  <div
                     key={index}
-                    className="flex items-center gap-2"
-                    variants={itemVariants}
+                    className="flex items-center justify-between"
                   >
-                    <div
-                      className="w-3 h-3 rounded-full"
-                      style={{ backgroundColor: segment.color }}
-                    />
-                    <span className="text-sm">{segment.name}</span>
-                  </motion.div>
+                    <div className="flex items-center">
+                      <div
+                        className="w-3 h-3 rounded-full mr-2"
+                        style={{ backgroundColor: segment.color }}
+                      ></div>
+                      <span className="text-sm">{segment.name}</span>
+                    </div>
+                    <span className="text-sm font-medium">
+                      {segment.value}%
+                    </span>
+                  </div>
                 ))}
-              </motion.div>
+              </div>
             </CardContent>
           </Card>
-        </motion.div>
+        </ScrollReveal>
 
         {/* Recent Activity */}
-        <motion.div variants={chartVariants} initial="hidden" animate="show">
-          <Card>
+        <ScrollReveal direction="up" delay={0.2} className="lg:col-span-1">
+          <Card className="h-full">
             <CardHeader>
               <CardTitle>Recent Activity</CardTitle>
             </CardHeader>
             <CardContent>
-              <motion.div
-                className="space-y-4"
-                variants={containerVariants}
-                initial="hidden"
-                animate="show"
-              >
+              <div className="space-y-4">
                 {recentActivity.map((activity, index) => (
-                  <motion.div
+                  <div
                     key={index}
-                    className="flex items-start gap-4"
-                    variants={itemVariants}
-                    whileHover={{ x: 5, transition: { duration: 0.2 } }}
+                    className="flex items-start p-3 rounded-lg bg-gray-50"
                   >
-                    <motion.div
-                      className={`p-2 rounded-full 
-                      ${
-                        activity.type === "customer"
-                          ? "bg-blue-100 text-blue-600"
-                          : activity.type === "order"
-                          ? "bg-purple-100 text-purple-600"
-                          : "bg-teal-100 text-teal-600"
-                      }`}
-                      whileHover={{ scale: 1.1 }}
-                    >
-                      {activity.type === "customer" ? (
-                        <Users size={16} />
-                      ) : activity.type === "order" ? (
-                        <ShoppingCart size={16} />
-                      ) : (
-                        <Mail size={16} />
-                      )}
-                    </motion.div>
-                    <div>
-                      <h4 className="text-sm font-medium">{activity.title}</h4>
-                      <p className="text-sm text-muted-foreground">
-                        {activity.name}
-                      </p>
-                      <p className="text-xs text-muted-foreground mt-1">
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-medium">{activity.title}</p>
+                      <p className="text-sm text-gray-500">{activity.name}</p>
+                      <p className="text-xs text-gray-400 mt-1">
                         {activity.time}
                       </p>
                     </div>
-                  </motion.div>
+                  </div>
                 ))}
-              </motion.div>
+              </div>
+              <div className="mt-4 flex justify-center">
+                <AnimatedButton variant="outline" size="sm">
+                  View All Activity
+                </AnimatedButton>
+              </div>
             </CardContent>
           </Card>
-        </motion.div>
+        </ScrollReveal>
+
+        {/* Recent Campaigns */}
+        <ScrollReveal direction="right" delay={0.4} className="lg:col-span-1">
+          <Card className="h-full">
+            <CardHeader>
+              <CardTitle>Recent Campaigns</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-4">
+                {recentCampaigns.map((campaign, index) => (
+                  <div key={index} className="p-3 rounded-lg bg-gray-50">
+                    <p className="text-sm font-medium">{campaign.name}</p>
+                    <div className="grid grid-cols-2 gap-1 mt-2 text-xs">
+                      <div>
+                        <p className="text-gray-500">Date</p>
+                        <p>{campaign.date}</p>
+                      </div>
+                      <div>
+                        <p className="text-gray-500">Audience</p>
+                        <p>{campaign.audience}</p>
+                      </div>
+                      <div>
+                        <p className="text-gray-500">Status</p>
+                        <p>{campaign.status}</p>
+                      </div>
+                      <div>
+                        <p className="text-gray-500">Performance</p>
+                        <p>{campaign.performance}</p>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+              <div className="mt-4 flex justify-center">
+                <AnimatedButton variant="outline" size="sm">
+                  View All Campaigns
+                </AnimatedButton>
+              </div>
+            </CardContent>
+          </Card>
+        </ScrollReveal>
       </div>
 
-      {/* Recent Campaigns */}
-      <motion.div
-        className="mt-6"
-        variants={tableVariants}
-        initial="hidden"
-        animate="show"
-      >
+      {/* Quick Actions */}
+      <ScrollReveal direction="up" delay={0.6} className="mt-6">
         <Card>
           <CardHeader>
-            <CardTitle>Recent Campaigns</CardTitle>
+            <CardTitle>Quick Actions</CardTitle>
           </CardHeader>
-          <div className="overflow-x-auto">
-            <table className="w-full">
-              <thead>
-                <tr className="border-b">
-                  <th className="text-left p-4 font-medium">Campaign Name</th>
-                  <th className="text-left p-4 font-medium">Date</th>
-                  <th className="text-left p-4 font-medium">Audience</th>
-                  <th className="text-left p-4 font-medium">Delivered</th>
-                  <th className="text-left p-4 font-medium">Status</th>
-                  <th className="text-left p-4 font-medium">Performance</th>
-                </tr>
-              </thead>
-              <tbody>
-                {recentCampaigns.map((campaign, index) => (
-                  <motion.tr
-                    key={index}
-                    className="border-b hover:bg-gray-50"
-                    initial={{ opacity: 0, y: 10 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ delay: 0.5 + index * 0.1 }}
-                    whileHover={{ backgroundColor: "rgba(59, 130, 246, 0.05)" }}
-                  >
-                    <td className="p-4">{campaign.name}</td>
-                    <td className="p-4">{campaign.date}</td>
-                    <td className="p-4">{campaign.audience}</td>
-                    <td className="p-4">{campaign.delivered}</td>
-                    <td className="p-4">
-                      <span className="px-2 py-1 bg-green-100 text-green-800 rounded-full text-xs">
-                        {campaign.status}
-                      </span>
-                    </td>
-                    <td className="p-4">
-                      <div className="w-full bg-gray-200 rounded-full h-2">
-                        <motion.div
-                          className="bg-blue-600 h-2 rounded-full"
-                          initial={{ width: 0 }}
-                          animate={{ width: campaign.performance }}
-                          transition={{ delay: 0.7, duration: 1 }}
-                        />
-                      </div>
-                    </td>
-                  </motion.tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+          <CardContent className="flex flex-wrap gap-3">
+            <AnimatedButton>Create Campaign</AnimatedButton>
+            <AnimatedButton variant="outline">Add Customer</AnimatedButton>
+            <AnimatedButton variant="outline">Generate Report</AnimatedButton>
+          </CardContent>
         </Card>
-      </motion.div>
-    </div>
+      </ScrollReveal>
+    </FadeIn>
   );
 }

@@ -16,26 +16,35 @@ export const loginWithGoogle = () => {
   window.location.href = `${API_BASE_URL}/auth/google`;
 };
 
-export const loginAsGuest = () => {
+export const loginAsGuest = async () => {
   console.log("Logging in as guest");
+  try {
+    const response = await api.get("/auth/guest");
+    console.log("Guest login response:", response);
 
-  // Create a form and submit it
-  const form = document.createElement("form");
-  form.method = "GET";
-  form.action = "http://localhost:5003/auth/guest";
-
-  // Append the form to the body and submit it
-  document.body.appendChild(form);
-  form.submit();
+    // Instead of reloading the page, return the user data
+    // The component will handle updating the auth state
+    return response.data.user;
+  } catch (error) {
+    console.error("Guest login failed:", error);
+    throw error;
+  }
 };
 
 export const logout = async () => {
   try {
-    await api.get("/auth/logout");
+    // Use only the Accept header which is CORS-safelisted
+    const response = await api.get("/auth/logout", {
+      headers: {
+        Accept: "application/json",
+      },
+    });
     return true;
   } catch (error) {
     console.error("Logout failed:", error);
-    return false;
+    // Even if the API call fails, we want to clear local state
+    // This ensures the user can still "log out" locally
+    return true;
   }
 };
 

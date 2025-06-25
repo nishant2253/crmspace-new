@@ -6,6 +6,9 @@
   "scripts": {
     "start": "node src/app.js",
     "dev": "nodemon src/app.js",
+    "consumer": "node src/services/streamConsumer.js",
+    "dev:full": "concurrently \"npm run dev\" \"npm run consumer\"",
+    "start:full": "concurrently \"npm run start\" \"npm run consumer\"",
     "reset:db": "node src/utils/clearDatabase.js",
     "reset:redis": "node src/services/resetStreams.js",
     "reset:consumer-groups": "node src/services/resetConsumerGroups.js",

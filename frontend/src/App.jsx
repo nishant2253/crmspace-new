@@ -11,6 +11,7 @@ import NotFoundPage from "./pages/NotFoundPage";
 import ProtectedRoute from "./components/ProtectedRoute";
 import { AnimatePresence, motion } from "framer-motion";
 import { useAuth } from "./contexts/AuthContext";
+import { FadeIn } from "./components/ui/fade-in";
 
 // Page transition variants
 const pageVariants = {

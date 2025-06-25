@@ -1,36 +1,36 @@
-import { createClient } from "redis";
+import { getRedisClient } from "../redis/client.js";
 import dotenv from "dotenv";
 import { fileURLToPath } from "url";
 
 dotenv.config();
 
 const resetStreams = async () => {
-  let redisClient;
-
   try {
-    // Connect to Redis
-    redisClient = createClient({
-      url: `redis://${process.env.REDIS_HOST || "localhost"}:${
-        process.env.REDIS_PORT || 6379
-      }`,
-    });
-    await redisClient.connect();
+    // Get Redis client
+    const redisClient = getRedisClient();
     console.log("Connected to Redis");
 
-    // Clear all Redis streams
-    const streamKeys = await redisClient.keys("stream:*");
+    // Clear customer and order ingest streams
+    await redisClient.del("customer_ingest");
+    console.log("Cleared customer_ingest stream");
+
+    await redisClient.del("order_ingest");
+    console.log("Cleared order_ingest stream");
+
+    // Clear all campaign streams
+    const streamKeys = await redisClient.keys("stream:campaign:*");
 
     if (streamKeys && streamKeys.length > 0) {
-      console.log(`Found ${streamKeys.length} Redis streams to clear`);
+      console.log(`Found ${streamKeys.length} Redis campaign streams to clear`);
 
       for (const key of streamKeys) {
         await redisClient.del(key);
         console.log(`Cleared Redis stream: ${key}`);
       }
 
-      console.log("All Redis streams cleared successfully");
+      console.log("All Redis campaign streams cleared successfully");
     } else {
-      console.log("No Redis streams found to clear");
+      console.log("No Redis campaign streams found to clear");
     }
 
     // Clear consumer groups if any
@@ -41,13 +41,11 @@ const resetStreams = async () => {
         console.log(`Cleared Redis key: ${key}`);
       }
     }
+
+    console.log("Redis streams reset successfully");
   } catch (err) {
     console.error("Error clearing Redis streams:", err);
   } finally {
-    if (redisClient) {
-      await redisClient.quit();
-      console.log("Redis connection closed");
-    }
     process.exit(0);
   }
 };

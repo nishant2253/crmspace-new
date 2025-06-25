@@ -10,6 +10,7 @@ import RedisStore from "connect-redis";
 import router from "./routes/index.js";
 import { initPassport } from "./services/passport.js";
 import path from "path";
+import MemorySessionStore from "./services/memorySessionStore.js";
 // Import stream consumer functionality
 import Customer from "./models/Customer.js";
 import Order from "./models/Order.js";
@@ -40,7 +41,12 @@ app.use(
     ],
     credentials: true,
     methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
-    allowedHeaders: ["Content-Type", "Authorization"],
+    allowedHeaders: [
+      "Content-Type",
+      "Authorization",
+      "X-Requested-With",
+      "Accept",
+    ],
     exposedHeaders: ["Set-Cookie"],
   })
 );
@@ -70,19 +76,17 @@ async function setupRedis() {
       console.log("Connecting to Redis using REDIS_URL");
       redisClient = new Redis(process.env.REDIS_URL, {
         tls: isProduction ? { rejectUnauthorized: false } : undefined,
-        connectTimeout: 10000, // 10 seconds
-        disconnectTimeout: 5000, // 5 seconds
+        connectTimeout: 5000, // Reduced from 10000 to 5000
+        disconnectTimeout: 2000, // Reduced from 5000 to 2000
         retryStrategy: (times) => {
-          console.log(`Redis connection retry attempt ${times}`);
-          if (times > 5) {
+          if (times > 3) {
+            // Reduced from 5 to 3
             console.log("Redis max retries reached, using memory store");
             return null; // stop retrying
           }
-          const delay = Math.min(times * 200, 2000);
-          console.log(`Retrying Redis connection in ${delay}ms`);
-          return delay;
+          return Math.min(times * 100, 1000); // Faster retry
         },
-        maxRetriesPerRequest: 2,
+        maxRetriesPerRequest: 1, // Reduced from 2 to 1
       });
     } else {
       // Fallback to individual connection parameters
@@ -94,19 +98,17 @@ async function setupRedis() {
       redisClient = new Redis({
         host: process.env.REDIS_HOST || "localhost",
         port: process.env.REDIS_PORT || 6379,
-        connectTimeout: 10000, // 10 seconds
-        disconnectTimeout: 5000, // 5 seconds
+        connectTimeout: 5000, // Reduced from 10000 to 5000
+        disconnectTimeout: 2000, // Reduced from 5000 to 2000
         retryStrategy: (times) => {
-          console.log(`Redis connection retry attempt ${times}`);
-          if (times > 5) {
+          if (times > 3) {
+            // Reduced from 5 to 3
             console.log("Redis max retries reached, using memory store");
             return null; // stop retrying
           }
-          const delay = Math.min(times * 200, 2000);
-          console.log(`Retrying Redis connection in ${delay}ms`);
-          return delay;
+          return Math.min(times * 100, 1000); // Faster retry
         },
-        maxRetriesPerRequest: 2,
+        maxRetriesPerRequest: 1, // Reduced from 2 to 1
       });
     }
 
@@ -207,28 +209,59 @@ async function setupConsumerGroups() {
 
 // Start stream processing if Redis is available
 async function startStreamProcessing() {
-  if (!redisClient) return;
+  if (!redisClient) {
+    console.log(
+      "STREAM PROCESSING: Redis client not available, skipping stream processing"
+    );
+    return;
+  }
 
-  console.log("Starting stream processors in main app...");
+  console.log("STREAM PROCESSING: Starting stream processors in main app...");
 
-  // Process streams in the background
-  processCustomerStream().catch((err) =>
-    console.error("Customer stream error:", err.message)
-  );
-  processOrderStream().catch((err) =>
-    console.error("Order stream error:", err.message)
-  );
-  processCampaignDeliveryStreams().catch((err) =>
-    console.error("Campaign stream error:", err.message)
-  );
+  try {
+    // Ensure consumer groups are set up
+    await setupConsumerGroups();
+    console.log("STREAM PROCESSING: Consumer groups set up successfully");
+
+    // Process streams in the background
+    console.log("STREAM PROCESSING: Starting customer stream processor");
+    processCustomerStream().catch((err) =>
+      console.error("STREAM ERROR: Customer stream error:", err.message)
+    );
+
+    console.log("STREAM PROCESSING: Starting order stream processor");
+    processOrderStream().catch((err) =>
+      console.error("STREAM ERROR: Order stream error:", err.message)
+    );
+
+    console.log(
+      "STREAM PROCESSING: Starting campaign delivery stream processor"
+    );
+    processCampaignDeliveryStreams().catch((err) =>
+      console.error("STREAM ERROR: Campaign stream error:", err.message)
+    );
+
+    console.log("STREAM PROCESSING: All stream processors started");
+  } catch (err) {
+    console.error(
+      "STREAM ERROR: Failed to start stream processing:",
+      err.message
+    );
+  }
 }
 
 // Stream processing functions
 async function processCustomerStream() {
-  if (!redisClient) return;
+  if (!redisClient) {
+    console.log("STREAM ERROR: Redis client not available for customer stream");
+    return;
+  }
+
+  console.log("STREAM PROCESSING: Customer stream processor started");
 
   while (true) {
     try {
+      console.log("STREAM PROCESSING: Reading from customer_ingest stream...");
       // Read new messages using consumer group
       const res = await redisClient.xreadgroup(
         "GROUP",
@@ -244,31 +277,56 @@ async function processCustomerStream() {
       );
 
       if (res) {
+        console.log(
+          "STREAM PROCESSING: Received data from customer_ingest stream:",
+          JSON.stringify(res)
+        );
         const [[, entries]] = res;
+        console.log(
+          `STREAM PROCESSING: Processing ${entries.length} customer entries`
+        );
+
         for (const [id, fields] of entries) {
+          console.log(`STREAM PROCESSING: Processing customer entry ${id}`);
           const data = Object.fromEntries(
             fields
               .map((v, i, arr) => (i % 2 === 0 ? [v, arr[i + 1]] : null))
               .filter(Boolean)
           );
+          console.log("STREAM PROCESSING: Parsed customer data:", data);
+
           try {
             await Customer.create(data);
-            console.log("Customer saved:", data.email);
+            console.log("STREAM PROCESSING: Customer saved:", data.email);
             // Acknowledge message as processed
             await redisClient.xack("customer_ingest", CONSUMER_GROUP, id);
+            console.log(`STREAM PROCESSING: Acknowledged customer entry ${id}`);
           } catch (err) {
             if (err.message.includes("duplicate key error")) {
               // Acknowledge duplicate records but log them
-              console.log("Customer already exists:", data.email);
+              console.log(
+                "STREAM PROCESSING: Customer already exists:",
+                data.email
+              );
               await redisClient.xack("customer_ingest", CONSUMER_GROUP, id);
+              console.log(
+                `STREAM PROCESSING: Acknowledged duplicate customer entry ${id}`
+              );
             } else {
-              console.error("Customer save error:", err.message);
+              console.error("STREAM ERROR: Customer save error:", err.message);
             }
           }
         }
+      } else {
+        console.log(
+          "STREAM PROCESSING: No new messages in customer_ingest stream"
+        );
       }
     } catch (err) {
-      console.error("Error processing customer stream:", err.message);
+      console.error(
+        "STREAM ERROR: Error processing customer stream:",
+        err.message
+      );
       // Small delay to prevent tight error loop
       await new Promise((resolve) => setTimeout(resolve, 5000));
     }
@@ -441,21 +499,35 @@ async function processCampaignDeliveryStreams() {
 
 // Setup session middleware with appropriate store
 async function setupApp() {
-  // Try to connect to Redis first if not disabled
-  if (useRedis) {
-    await setupRedis();
+  let sessionStore;
+  let redisConnected = false;
+
+  // Try to connect to Redis first if not disabled and in production
+  if (useRedis && isProduction) {
+    redisConnected = await setupRedis();
 
     // If Redis connected successfully, set up consumer groups and start stream processing
     if (redisClient) {
       await setupConsumerGroups();
       // Start stream processing in the background
       startStreamProcessing();
+
+      // Create Redis store for session
+      sessionStore = new RedisStore({ client: redisClient });
+      console.log("Redis session store initialized");
     }
   }
 
-  // Session configuration (with or without Redis)
+  // If Redis is not connected, use the built-in memory store
+  if (!redisConnected) {
+    console.log("Using default memory store for sessions");
+    // Don't create a store - express-session will use its default MemoryStore
+  }
+
+  // Session configuration
   const sessionOptions = {
-    store: sessionStore, // Will be null if Redis connection failed or disabled
+    // Only set store if Redis is connected
+    ...(redisConnected && { store: sessionStore }),
     secret: process.env.SESSION_SECRET || "secret",
     resave: false,
     saveUninitialized: false,
@@ -466,6 +538,8 @@ async function setupApp() {
       sameSite: isProduction ? "none" : "lax", // For cross-site cookies in production
       maxAge: 24 * 60 * 60 * 1000, // 24 hours
     },
+    // Add rolling: true to extend session on each request
+    rolling: true,
   };
 
   // Only set domain in production if needed

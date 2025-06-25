@@ -1,4 +1,4 @@
-import { createClient } from "redis";
+import { getRedisClient } from "../redis/client.js";
 import dotenv from "dotenv";
 import { fileURLToPath } from "url";
 
@@ -7,16 +7,9 @@ dotenv.config();
 const CONSUMER_GROUP = "crm-consumer-group";
 
 const resetConsumerGroups = async () => {
-  let redisClient;
-
   try {
-    // Connect to Redis
-    redisClient = createClient({
-      url: `redis://${process.env.REDIS_HOST || "localhost"}:${
-        process.env.REDIS_PORT || 6379
-      }`,
-    });
-    await redisClient.connect();
+    // Get Redis client
+    const redisClient = getRedisClient();
     console.log("Connected to Redis");
 
     // Delete and recreate consumer groups for fresh start
@@ -67,14 +60,39 @@ const resetConsumerGroups = async () => {
       console.error("Error creating order consumer group:", err.message);
     }
 
+    // Reset campaign stream consumer groups if any
+    const campaignStreams = await redisClient.keys("stream:campaign:*");
+    if (campaignStreams && campaignStreams.length > 0) {
+      for (const streamKey of campaignStreams) {
+        try {
+          await redisClient.xgroup("DESTROY", streamKey, CONSUMER_GROUP);
+          console.log(`Deleted existing consumer group for ${streamKey}`);
+        } catch (err) {
+          console.log(`No consumer group existed for ${streamKey}`);
+        }
+
+        try {
+          await redisClient.xgroup(
+            "CREATE",
+            streamKey,
+            CONSUMER_GROUP,
+            "$",
+            "MKSTREAM"
+          );
+          console.log(`Created fresh consumer group for ${streamKey}`);
+        } catch (err) {
+          console.error(
+            `Error creating consumer group for ${streamKey}:`,
+            err.message
+          );
+        }
+      }
+    }
+
     console.log("Consumer groups have been reset successfully");
   } catch (err) {
     console.error("Error resetting consumer groups:", err);
   } finally {
-    if (redisClient) {
-      await redisClient.quit();
-      console.log("Redis connection closed");
-    }
     process.exit(0);
   }
 };

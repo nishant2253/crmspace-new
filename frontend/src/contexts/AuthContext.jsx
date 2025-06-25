@@ -20,14 +20,30 @@ export function AuthProvider({ children }) {
 
   // Improved logout: clear user, redirect, handle errors
   const logout = async () => {
+    // Always clear the user state first for a responsive UI
+    setUser(null);
+
     try {
-      await apiLogout();
+      // Then attempt to logout on the server
+      const success = await apiLogout();
+      if (!success) {
+        console.warn(
+          "Server logout may have failed, but local state is cleared"
+        );
+      }
     } catch (err) {
+      console.error("Logout error:", err);
       // Ignore network errors on logout
     } finally {
-      setUser(null);
+      // Always navigate to get-started page
       navigate("/get-started", { replace: true });
     }
+  };
+
+  // Set guest user directly without reloading
+  const setGuestUser = (guestUser) => {
+    setUser(guestUser);
+    navigate("/dashboard", { replace: true });
   };
 
   // Handle session expiration: if user is null and not loading, redirect to login
@@ -45,7 +61,9 @@ export function AuthProvider({ children }) {
   const isGuestUser = user && user.isGuest === true;
 
   return (
-    <AuthContext.Provider value={{ user, loading, logout, isGuestUser }}>
+    <AuthContext.Provider
+      value={{ user, loading, logout, isGuestUser, setUser, setGuestUser }}
+    >
       {children}
     </AuthContext.Provider>
   );

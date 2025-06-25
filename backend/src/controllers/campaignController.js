@@ -28,6 +28,16 @@ function buildQueryFromRules(rulesJSON) {
 export const createCampaign = async (req, res) => {
   try {
     console.log("CAMPAIGN CONTROLLER: Received request to create campaign");
+
+    // For guest users, return a friendly message
+    if (req.isGuestUser) {
+      return res.status(400).json({
+        error:
+          "As a guest user, you can preview campaigns but not create them. Please sign in with Google to create campaigns.",
+        isGuestError: true,
+      });
+    }
+
     console.log(
       "CAMPAIGN CONTROLLER: Request body:",
       JSON.stringify({
@@ -150,6 +160,12 @@ export const listCampaigns = async (req, res) => {
       .populate("segmentId");
     res.json(campaigns);
   } catch (err) {
+    // For guest users, return an empty array instead of an error
+    if (req.isGuestUser) {
+      console.log("Guest user detected, returning empty campaigns array");
+      return res.json([]);
+    }
+
     res.status(500).json({ error: err.message });
   }
 };

@@ -3,8 +3,7 @@ import mongoose from "mongoose";
 const segmentRuleSchema = new mongoose.Schema(
   {
     userId: {
-      type: mongoose.Schema.Types.ObjectId,
-      ref: "User",
+      type: mongoose.Schema.Types.Mixed,
       required: true,
     },
     name: { type: String, required: true },

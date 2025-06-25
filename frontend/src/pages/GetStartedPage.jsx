@@ -1,11 +1,30 @@
-import React from "react";
+import React, { useState } from "react";
 import { Link } from "react-router-dom";
 import { useAuth } from "../contexts/AuthContext";
 import { motion } from "framer-motion";
 import { loginAsGuest } from "../services/api";
+import { FadeIn } from "../components/ui/fade-in";
+import { AnimatedButton } from "../components/ui/animated-button";
+import { AnimatedCard } from "../components/ui/animated-card";
+import { ScrollReveal } from "../components/ui/scroll-reveal";
+import { Tooltip } from "../components/ui/tooltip";
 
 export default function GetStartedPage() {
-  const { user } = useAuth();
+  const { user, setGuestUser } = useAuth();
+  const [isLoading, setIsLoading] = useState(false);
+
+  const handleGuestLogin = async () => {
+    setIsLoading(true);
+    try {
+      const guestUser = await loginAsGuest();
+      // Use the specialized function for guest login
+      setGuestUser(guestUser);
+      // No need to navigate - setGuestUser handles it
+    } catch (error) {
+      console.error("Guest login error:", error);
+      setIsLoading(false);
+    }
+  };
 
   // Animation variants
   const containerVariants = {
@@ -32,10 +51,10 @@ export default function GetStartedPage() {
     },
   };
 
+  // We're not using this anymore since we're using AnimatedCard
   const cardHoverVariants = {
     hover: {
       y: -5,
-      boxShadow: "0 10px 25px rgba(0, 0, 0, 0.08)",
       transition: {
         type: "spring",
         stiffness: 300,
@@ -215,12 +234,7 @@ export default function GetStartedPage() {
   ];
 
   return (
-    <motion.div
-      className="p-6 max-w-7xl mx-auto"
-      initial={{ opacity: 0 }}
-      animate={{ opacity: 1 }}
-      transition={{ duration: 0.5 }}
-    >
+    <FadeIn className="p-6 max-w-7xl mx-auto">
       <motion.div
         className="text-center mb-12"
         initial={{ y: -20, opacity: 0 }}
@@ -236,69 +250,54 @@ export default function GetStartedPage() {
           Welcome to CRMspace
         </h1>
         <p className="text-xl text-gray-600 max-w-3xl mx-auto">
-          Your AI-powered customer relationship management platform. Follow this
-          guide to get started.
+          Your all-in-one customer relationship management solution with
+          AI-powered segmentation and campaign tools.
         </p>
+
         {!user && (
-          <motion.div
-            className="mt-6"
-            initial={{ scale: 0.8, opacity: 0 }}
-            animate={{ scale: 1, opacity: 1 }}
-            transition={{ delay: 0.4, type: "spring" }}
-          >
-            <div className="flex flex-col sm:flex-row gap-4">
-              <Link
-                to="/login"
-                className="bg-blue-600 text-white px-6 py-3 rounded-lg shadow-lg hover:bg-blue-700 transition-colors inline-flex items-center gap-2 text-lg"
-              >
-                <svg width="24" height="24" viewBox="0 0 48 48">
-                  <g>
+          <div className="mt-8 flex flex-wrap justify-center gap-4">
+            <Link
+              to="/login"
+              className="bg-blue-600 text-white px-6 py-3 rounded-lg shadow-lg hover:bg-blue-700 transition-colors"
+            >
+              Sign in with Google
+            </Link>
+            <button
+              onClick={handleGuestLogin}
+              disabled={isLoading}
+              className="bg-gray-600 text-white px-6 py-3 rounded-lg shadow-lg hover:bg-gray-700 transition-colors flex items-center gap-2"
+            >
+              {isLoading ? (
+                <>
+                  <svg
+                    className="animate-spin -ml-1 mr-2 h-4 w-4 text-white"
+                    xmlns="http://www.w3.org/2000/svg"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                  >
+                    <circle
+                      className="opacity-25"
+                      cx="12"
+                      cy="12"
+                      r="10"
+                      stroke="currentColor"
+                      strokeWidth="4"
+                    ></circle>
                     <path
-                      fill="#4285F4"
-                      d="M43.6 20.5H42V20H24v8h11.3C34.7 32.1 29.8 35 24 35c-6.1 0-11.3-4.1-13.1-9.6-1.8-5.5.2-11.6 5.1-15C19.2 6.1 24.8 6 29.2 8.7l6.2-6.2C31.1.7 27.6 0 24 0 14.6 0 6.4 6.8 3.1 16.1c-3.3 9.3.2 19.6 8.3 24.9 8.1 5.3 19.1 3.7 25.7-3.7 5.1-5.7 6.5-14.1 4.1-21.1z"
-                    />
-                    <path
-                      fill="#34A853"
-                      d="M6.3 14.1l6.6 4.8C14.2 15.1 18.7 12 24 12c3.1 0 6 .9 8.3 2.6l6.2-6.2C34.9 3.7 29.8 2 24 2 15.6 2 8.1 7.6 6.3 14.1z"
-                    />
-                    <path
-                      fill="#FBBC05"
-                      d="M24 46c5.4 0 10.4-1.8 14.3-4.9l-6.6-5.4C29.9 37.7 27 38.5 24 38.5c-5.7 0-10.6-3.7-12.4-8.9l-6.6 5.1C8.1 42.4 15.6 46 24 46z"
-                    />
-                    <path
-                      fill="#EA4335"
-                      d="M43.6 20.5H42V20H24v8h11.3c-1.1 3.1-3.6 5.7-6.6 7.2l6.6 5.4C41.9 38.2 44 32.7 44 27c0-1.1-.1-2.2-.4-3.2z"
-                    />
-                  </g>
-                </svg>
-                Sign in with Google
-              </Link>
-              <button
-                onClick={() => loginAsGuest()}
-                className="bg-gray-600 text-white px-6 py-3 rounded-lg shadow-lg hover:bg-gray-700 transition-colors inline-flex items-center gap-2 text-lg"
-              >
-                <svg
-                  xmlns="http://www.w3.org/2000/svg"
-                  width="24"
-                  height="24"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="2"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                >
-                  <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
-                  <circle cx="12" cy="7" r="4"></circle>
-                </svg>
-                Continue as Guest
-              </button>
-            </div>
-            <p className="mt-4 text-sm text-gray-500">
-              Guest login provides limited access to explore the platform.
-            </p>
-          </motion.div>
+                      className="opacity-75"
+                      fill="currentColor"
+                      d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                    ></path>
+                  </svg>
+                  Loading...
+                </>
+              ) : (
+                <>Continue as Guest</>
+              )}
+            </button>
+          </div>
         )}
+
         {user && (
           <motion.div
             className="mt-6"
@@ -316,47 +315,51 @@ export default function GetStartedPage() {
         )}
       </motion.div>
 
-      <motion.div
+      <FadeIn
         className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6"
-        variants={containerVariants}
-        initial="hidden"
-        animate="visible"
+        staggerItems
       >
-        {steps.map((step) => (
-          <motion.div
+        {steps.map((step, index) => (
+          <ScrollReveal
             key={step.number}
-            className="bg-white rounded-xl shadow-md p-6 hover:shadow-lg transition-shadow border border-gray-100 relative overflow-hidden"
-            variants={itemVariants}
-            whileHover="hover"
-            custom={cardHoverVariants}
+            delay={index * 0.05}
+            direction={
+              index % 3 === 0 ? "left" : index % 3 === 2 ? "right" : "up"
+            }
           >
-            <div className="absolute top-0 left-0 w-2 h-full bg-blue-500" />
-            <div className="flex items-center mb-4">
-              <div className="bg-blue-100 text-blue-800 font-bold rounded-full h-10 w-10 flex items-center justify-center mr-3 shadow-sm">
-                {step.number}
+            <AnimatedCard delay={index * 0.05}>
+              <div className="p-6 relative overflow-hidden">
+                <div className="absolute top-0 left-0 w-2 h-full bg-blue-500" />
+                <div className="flex items-center mb-4">
+                  <motion.div
+                    className="bg-blue-100 text-blue-800 font-bold rounded-full h-10 w-10 flex items-center justify-center mr-3 shadow-sm"
+                    whileHover={{ scale: 1.2, rotate: 10 }}
+                    transition={{ type: "spring", stiffness: 300 }}
+                  >
+                    {step.number}
+                  </motion.div>
+                  <h3 className="text-xl font-semibold text-gray-800">
+                    {step.title}
+                  </h3>
+                </div>
+                <p className="text-gray-600 mb-4 pl-1">{step.description}</p>
+                <div className="mt-auto pl-1">
+                  <Tooltip content={`Step ${step.number}: ${step.title}`}>
+                    {step.action}
+                  </Tooltip>
+                </div>
               </div>
-              <h3 className="text-xl font-semibold text-gray-800">
-                {step.title}
-              </h3>
-            </div>
-            <p className="text-gray-600 mb-4 pl-1">{step.description}</p>
-            <div className="mt-auto pl-1">{step.action}</div>
-          </motion.div>
+            </AnimatedCard>
+          </ScrollReveal>
         ))}
-      </motion.div>
+      </FadeIn>
 
-      <motion.div
+      <ScrollReveal
         className="mt-16 bg-gradient-to-r from-blue-50 to-indigo-50 rounded-xl p-8 shadow-sm"
         id="mock-data"
-        initial={{ opacity: 0, y: 40 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{
-          delay: 0.8,
-          duration: 0.7,
-          type: "spring",
-          stiffness: 50,
-          damping: 14,
-        }}
+        direction="up"
+        delay={0.8}
+        distance={40}
       >
         <motion.h2
           className="text-3xl font-bold text-blue-800 mb-6 relative inline-block"
@@ -571,13 +574,12 @@ GET /api/orders`}</code>
             Note: You need to be authenticated to use these endpoints.
           </p>
         </motion.div>
-      </motion.div>
+      </ScrollReveal>
 
-      <motion.div
+      <ScrollReveal
         className="mt-16 text-center mb-10"
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 1 }}
-        transition={{ delay: 1.5, duration: 0.8 }}
+        direction="up"
+        delay={1.5}
       >
         <h2 className="text-2xl font-bold text-blue-800 mb-3">
           Ready to Start?
@@ -605,7 +607,7 @@ GET /api/orders`}</code>
             </Link>
           </motion.div>
         )}
-      </motion.div>
-    </motion.div>
+      </ScrollReveal>
+    </FadeIn>
   );
 }

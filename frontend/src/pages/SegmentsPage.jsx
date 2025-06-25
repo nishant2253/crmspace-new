@@ -3,9 +3,16 @@ import { apiGet, apiPost, apiPostNoCredentials } from "../services/api";
 import { previewSegmentAudience } from "../services/segmentUtils";
 import { useNavigate } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
+import { useAuth } from "../contexts/AuthContext";
+import { FadeIn } from "../components/ui/fade-in";
+import { AnimatedButton } from "../components/ui/animated-button";
+import { AnimatedCard } from "../components/ui/animated-card";
+import { ScrollReveal } from "../components/ui/scroll-reveal";
+import { Tooltip } from "../components/ui/tooltip";
 
 export default function SegmentsPage() {
   const navigate = useNavigate();
+  const { isGuestUser } = useAuth();
   const [segments, setSegments] = useState([]);
   const [loading, setLoading] = useState(true);
   const [name, setName] = useState("");
@@ -22,11 +29,19 @@ export default function SegmentsPage() {
     count: 0,
   });
   const [importingMockData, setImportingMockData] = useState(false);
+  const [guestUserMessage, setGuestUserMessage] = useState(
+    isGuestUser
+      ? "As a guest user, you can preview segments but not save them."
+      : ""
+  );
 
   useEffect(() => {
     // Fetch segments and mock data status
     Promise.all([
-      apiGet("/api/segments"),
+      apiGet("/api/segments").catch((err) => {
+        console.error("Error fetching segments:", err);
+        return [];
+      }),
       apiGet("/test/mock-data-status").catch(() => ({
         mockDataLoaded: false,
         mockCustomerCount: 0,
@@ -45,6 +60,15 @@ export default function SegmentsPage() {
 
   const handleCreate = async (e) => {
     e.preventDefault();
+
+    // Show a message for guest users
+    if (isGuestUser) {
+      setError(
+        "As a guest user, you can preview segments but not save them. Please sign in with Google to save segments."
+      );
+      return;
+    }
+
     setCreating(true);
     setError("");
     try {
@@ -58,7 +82,13 @@ export default function SegmentsPage() {
       // Navigate to campaigns page with the new segment ID
       navigate(`/campaigns?createCampaign=true&segmentId=${seg._id}`);
     } catch (err) {
-      setError(err?.response?.data?.error || "Error creating segment");
+      if (err?.response?.data?.isGuestError) {
+        setError(
+          err?.response?.data?.error || "Guest users cannot create segments"
+        );
+      } else {
+        setError(err?.response?.data?.error || "Error creating segment");
+      }
     } finally {
       setCreating(false);
     }

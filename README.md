@@ -167,11 +167,22 @@ https://youtu.be/x__81ZHFtvc
    cd frontend
    npm run dev
 
-   # Stream consumer only
-   node backend/src/service/consumerstream.js
+   # Stream consumer only (IMPORTANT!)
+   cd backend
+   npm run consumer
    ```
 
-3. **Reset Data**
+   **IMPORTANT:** The Redis stream consumer must be running for data to flow from Redis to MongoDB. If you're adding customers or orders and they're not appearing in MongoDB, make sure the stream consumer is running.
+
+3. **Development with Both API and Stream Consumer**
+
+   ```bash
+   # Run both backend API and stream consumer
+   cd backend
+   npm run dev:full
+   ```
+
+4. **Reset Data**
 
    ```bash
    # Reset all (MongoDB data and Redis streams)
@@ -181,7 +192,7 @@ https://youtu.be/x__81ZHFtvc
    npm run reset:redis
    ```
 
-4. **Troubleshooting: Port in Use**
+5. **Troubleshooting: Port in Use**
 
    ```bash
    # Find process using port 5003
@@ -191,7 +202,7 @@ https://youtu.be/x__81ZHFtvc
    kill -9 <PID>
    ```
 
-5. **Access the Application**
+6. **Access the Application**
    - Frontend: http://localhost:5173
    - Backend API: http://localhost:5003
    - API Documentation: http://localhost:5003/api-docs (if Swagger is configured)
@@ -384,3 +395,53 @@ The segment preview functionality was not working correctly. The following issue
    ```
 
 4. Visit the Segments page and try the preview functionality with different rules.
+
+## Animated UI Components
+
+The CRM application has been enhanced with a suite of animated UI components built using Framer Motion for a more engaging user experience:
+
+### Animation Components
+
+- **FadeIn**: Creates smooth fade-in animations with optional staggered children.
+- **ScrollReveal**: Reveals elements with animation as they enter the viewport.
+- **Tooltip**: Provides informative tooltips with smooth animations.
+
+### Form Components
+
+- **AnimatedInput**: Enhanced text input with floating label animations.
+- **AnimatedTextarea**: Enhanced textarea with floating label animations.
+- **AnimatedSelect**: Enhanced select dropdown with floating label and chevron animations.
+
+### UI Components
+
+- **AnimatedButton**: Buttons with hover and tap animations.
+- **AnimatedCard**: Cards with entrance and hover animations.
+
+### Usage Example
+
+```jsx
+import {
+  FadeIn,
+  AnimatedButton,
+  AnimatedCard,
+  AnimatedInput,
+} from "./components/ui";
+
+function MyComponent() {
+  return (
+    <FadeIn className="space-y-4" staggerItems>
+      <AnimatedInput
+        label="Email"
+        type="email"
+        placeholder="Enter your email"
+      />
+
+      <AnimatedCard>
+        <div className="p-4">Card content here</div>
+      </AnimatedCard>
+
+      <AnimatedButton>Click Me</AnimatedButton>
+    </FadeIn>
+  );
+}
+```

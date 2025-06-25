@@ -84,18 +84,36 @@ export const createSegmentRule = async (req, res) => {
     res.status(201).json(segment);
   } catch (err) {
     console.error("Error creating segment rule:", err);
+
+    // For guest users with validation errors, provide a more specific message
+    if (req.isGuestUser && err.name === "ValidationError") {
+      return res.status(400).json({
+        error:
+          "As a guest user, you can preview segments but not save them. Please sign in with Google to save segments.",
+        isGuestError: true,
+      });
+    }
+
     res.status(500).json({ error: err.message });
   }
 };
 
 export const listSegmentRules = async (req, res) => {
   try {
+    // For guest users, we might have a string ID instead of an ObjectId
     const segments = await SegmentRule.find({ userId: req.user._id }).sort({
       createdAt: -1,
     });
     res.json(segments);
   } catch (err) {
     console.error("Error listing segment rules:", err);
+
+    // For guest users, return an empty array instead of an error
+    if (req.isGuestUser) {
+      console.log("Guest user detected, returning empty segments array");
+      return res.json([]);
+    }
+
     res.status(500).json({ error: err.message });
   }
 };

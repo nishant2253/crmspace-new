@@ -12,6 +12,13 @@ import {
 import { PlusCircle, ChevronDown, ChevronUp } from "lucide-react";
 import { apiGet, apiPost } from "../services/api"; // Import API service
 import api from "../services/api";
+import { useAuth } from "../contexts/AuthContext";
+import { motion, AnimatePresence } from "framer-motion";
+import { FadeIn } from "../components/ui/fade-in";
+import { AnimatedButton } from "../components/ui/animated-button";
+import { AnimatedCard } from "../components/ui/animated-card";
+import { ScrollReveal } from "../components/ui/scroll-reveal";
+import { Tooltip } from "../components/ui/tooltip";
 
 // Get the API base URL for image sources
 const API_BASE_URL = import.meta.env.PROD
@@ -20,6 +27,7 @@ const API_BASE_URL = import.meta.env.PROD
 
 export default function CampaignsPage() {
   const location = useLocation();
+  const { isGuestUser } = useAuth();
   const [campaigns, setCampaigns] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -38,6 +46,11 @@ export default function CampaignsPage() {
   const [aiLoading, setAiLoading] = useState(false);
   const [aiImageLoading, setAiImageLoading] = useState(false);
   const [aiImage, setAiImage] = useState(null);
+  const [guestUserMessage, setGuestUserMessage] = useState(
+    isGuestUser
+      ? "As a guest user, you can preview campaigns but not create them."
+      : ""
+  );
 
   // Check for query parameters on mount
   useEffect(() => {
@@ -59,8 +72,14 @@ export default function CampaignsPage() {
     const fetchData = async () => {
       try {
         const [campaignsData, segmentsData] = await Promise.all([
-          apiGet("/api/campaigns"),
-          apiGet("/api/segments"),
+          apiGet("/api/campaigns").catch((err) => {
+            console.error("Error fetching campaigns:", err);
+            return [];
+          }),
+          apiGet("/api/segments").catch((err) => {
+            console.error("Error fetching segments:", err);
+            return [];
+          }),
         ]);
 
         console.log("Fetched campaigns:", campaignsData);
@@ -78,6 +97,15 @@ export default function CampaignsPage() {
 
   const handleCreateCampaign = async (e) => {
     e.preventDefault();
+
+    // Show a message for guest users
+    if (isGuestUser) {
+      setError(
+        "As a guest user, you can preview campaigns but not create them. Please sign in with Google to create campaigns."
+      );
+      return;
+    }
+
     try {
       const response = await apiPost("/api/campaigns", {
         ...newCampaign,
@@ -88,7 +116,13 @@ export default function CampaignsPage() {
       setNewCampaign({ segmentId: "", messageText: "" });
       setAiImage(null);
     } catch (err) {
-      setError(err.message);
+      if (err?.response?.data?.isGuestError) {
+        setError(
+          err?.response?.data?.error || "Guest users cannot create campaigns"
+        );
+      } else {
+        setError(err?.message || "Error creating campaign");
+      }
     }
   };
 

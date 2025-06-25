@@ -27,15 +27,13 @@ For optimal performance, we'll deploy three separate Vercel projects:
 # Database
 MONGO_URI=mongodb+srv://<username>:<password>@<cluster>.mongodb.net/crm
 
-# Redis
+# Redis(Optional)
 REDIS_HOST=<your-redis-host>
 REDIS_PORT=6379
 REDIS_PASSWORD=<your-redis-password>
 REDIS_TLS=true
 
-OR
-
-# Recommended
+# Recommended way to use REDIS_URL
 
 REDIS_URL=redis://default:************************exact-koi-10740.upstash.io:6379
 

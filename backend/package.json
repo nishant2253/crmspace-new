@@ -4,6 +4,7 @@
   "type": "module",
   "main": "src/app.js",
   "scripts": {
+    "build": "echo 'Build step completed'",
     "start": "node src/app.js",
     "dev": "nodemon src/app.js",
     "consumer": "node src/services/streamConsumer.js",

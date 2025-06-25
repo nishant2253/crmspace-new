@@ -11,24 +11,25 @@ This CRM platform enables:
 - **Customer segmentation** using flexible rule logic
 - **Personalized campaign delivery** through simulated messaging
 - **AI-powered insights** to convert plain text into audience filters and summarize campaign stats
+- **Guest User Access** for quick platform exploration without Google authentication
 
 ---
 
 ## 🛠️ Tech Stack
 
-- **Frontend:** React.js with Vite + Tailwind CSS
+- **Frontend:** React.js with Vite + Tailwind CSS + Framer Motion
 - **Backend:** Node.js + Express (ES6 modules)
 - **Database:** MongoDB (Mongoose)
 - **Message Broker:** Redis Streams (pub/sub)
-- **Authentication:** Google OAuth 2.0 (Passport.js)
+- **Authentication:** Google OAuth 2.0 (Passport.js) + Guest Access
 - **AI Services:** OpenAI for text generation, Neblius AI for image generation
+- **Session Management:** Redis + Custom Memory Session Store
 
 ---
 
 ## Demo Video Link
 
 ```bash
-
 https://youtu.be/x__81ZHFtvc
 ```
 
@@ -44,6 +45,7 @@ https://youtu.be/x__81ZHFtvc
 │   │   ├── models/
 │   │   ├── routes/
 │   │   ├── services/
+│   │   │   └── memorySessionStore.js  # Custom session handling
 │   │   ├── redis/
 │   │   ├── ai/
 │   │   └── app.js
@@ -53,6 +55,7 @@ https://youtu.be/x__81ZHFtvc
 ├── frontend/
 │   ├── src/
 │   │   ├── components/
+│   │   │   └── ui/          # Reusable UI components
 │   │   ├── pages/
 │   │   ├── services/
 │   │   ├── contexts/
@@ -99,12 +102,38 @@ https://youtu.be/x__81ZHFtvc
    **Important Note:** The application connects to the `crm` database in MongoDB, not `crmspace`. When viewing data in MongoDB Compass, make sure to check the `crm` database, not `crmspace`.
 
 3. **Redis**
+
    ```bash
    # Install Redis (Ubuntu/Debian)
    sudo apt update
    sudo apt install redis-server
    sudo systemctl start redis-server
    sudo systemctl enable redis-server
+   ```
+
+4. **Environment Variables**
+
+   Create `.env` files in both backend and frontend directories:
+
+   Backend `.env`:
+
+   ```
+   PORT=5003
+   REDIS_HOST=localhost
+   REDIS_PORT=6379
+   USE_REDIS=true
+   MONGODB_URI=mongodb://localhost:27017/crm
+   REDIS_URL=redis://localhost:6379
+   GOOGLE_CLIENT_ID=your_google_client_id
+   GOOGLE_CLIENT_SECRET=your_google_client_secret
+   SESSION_SECRET=your_session_secret
+   OPENAI_API_KEY=your_openai_api_key
+   ```
+
+   Frontend `.env`:
+
+   ```
+   VITE_API_URL=http://localhost:5003
    ```
 
 ### Setup Steps
@@ -144,9 +173,10 @@ https://youtu.be/x__81ZHFtvc
 
 ### Running the Application
 
-1. **Start All Services (Backend, Frontend, Stream Consumer)**
+1. **Start Backend & Frontend**
 
    ```bash
+   cd fresh-crmspace
    npm start
    ```
 
@@ -154,7 +184,6 @@ https://youtu.be/x__81ZHFtvc
 
    - Backend server on port 5003
    - Frontend development server on port 5173
-   - Redis stream consumer
 
 2. **Individual Component Start**
 
@@ -186,9 +215,11 @@ https://youtu.be/x__81ZHFtvc
 
    ```bash
    # Reset all (MongoDB data and Redis streams)
+   cd backend
    npm run reset:all
 
    # Reset only Redis streams
+   cd backend
    npm run reset:redis
    ```
 
@@ -211,12 +242,23 @@ https://youtu.be/x__81ZHFtvc
 
 ## 🔄 Complete Walkthrough of CRMspace Platform
 
-### Step 1. User Authentication with Google OAuth 2.0
+### Step 1. User Authentication
+
+There are two ways to access the platform:
+
+#### Option A: Google OAuth 2.0
 
 - User visits the CRM platform and logs in with Google
 - Backend uses Passport.js with GoogleStrategy
 - After authentication, JWT is created and used for protected routes
 - Frontend AuthContext verifies authentication via /auth/me endpoint
+
+#### Option B: Guest Access
+
+- Click "Continue as Guest" on the login page
+- A temporary guest account is created with limited functionality
+- Guest sessions are managed through a custom memory session store
+- Guest users can explore basic features without Google authentication
 
 ### Step 2. Customer Data Ingestion with Redis Streams
 
@@ -290,67 +332,67 @@ https://youtu.be/x__81ZHFtvc
 
 ---
 
-## 🖼️ Architecture Diagram
+## 🔧 Troubleshooting Guide
 
-See the architecture diagram saved in the project.
+### Common Issues and Solutions
+
+1. **Session Issues**
+
+   - Clear browser cookies and local storage
+   - Ensure Redis server is running
+   - Check session secret in environment variables
+
+2. **MongoDB Connection Issues**
+
+   - Verify MongoDB service is running: `sudo systemctl status mongodb`
+   - Check MongoDB connection string in `.env`
+   - Ensure `crm` database exists
+
+3. **Redis Stream Consumer Not Processing**
+
+   - Verify Redis server is running: `sudo systemctl status redis-server`
+   - Check if consumer process is active: `ps aux | grep consumer`
+   - Restart consumer: `cd backend && npm run consumer`
+
+4. **Guest User Access Issues**
+   - Check if memory session store is properly initialized
+   - Verify guest user routes are properly configured
+   - Clear browser cache and try again
+
+### Development Tips
+
+1. **Debugging Tools**
+
+   - Use MongoDB Compass to inspect database
+   - Redis Commander for Redis inspection: `npm install -g redis-commander`
+   - React Developer Tools for frontend debugging
+
+2. **Testing**
+
+   - Use Postman collections in `/backend/postman`
+   - Test guest user flows separately from authenticated flows
+   - Monitor Redis streams using Redis CLI: `redis-cli monitor`
+
+3. **Performance Optimization**
+   - Keep Redis stream consumer running
+   - Monitor memory usage for guest sessions
+   - Use browser dev tools Network tab to check API response times
 
 ---
 
-## 🤖 AI Tools and Technology Used
+## 📝 Contributing
 
-- **OpenAI**: Used for:
-  - Campaign message generation
-  - Segment rule building from natural language
-  - Campaign performance summaries
-- **Neblius AI**: Used for:
-  - Campaign image generation with marketing-optimized dimensions
-- **Other Key Technologies**:
-  - Redis Streams for asynchronous processing
-  - MongoDB for data storage
-  - React with Vite for frontend
-  - Express.js for backend API
-  - Tailwind CSS for styling
-
----
-
-## ⚠️ Known Limitations and Assumptions
-
-1. **Database Connectivity**:
-
-   - The application connects to the `crm` database in MongoDB, not `crmspace`
-   - When viewing data in MongoDB Compass, all collections will be in the `crm` database
-   - Ensure data is imported to the correct database via importMockData.js
-
-2. **Segment Preview**:
-
-   - The "Show Details" button must be clicked before "Summarize Campaign"
-   - This is because summary generation depends on loaded campaign stats and logs
-
-3. **CORS Handling**:
-
-   - Cross-origin requests with credentials require proper CORS configuration
-   - Backend must include appropriate headers for frontend requests
-
-4. **Authentication**:
-
-   - Google OAuth credentials must be configured correctly
-   - HTTP-only cookies are used for session management
-   - For Postman requests, you must include the session cookie from your browser
-
-5. **Redis Dependency**:
-
-   - Redis must be running for the stream consumer to function
-   - Data processing is asynchronous, relying on Redis Streams
-
-6. **AI Service Dependencies**:
-   - OpenAI and Neblius AI services require valid API keys
-   - AI features will not work without proper configuration
+1. Fork the repository
+2. Create a feature branch
+3. Commit your changes
+4. Push to the branch
+5. Create a Pull Request
 
 ---
 
 ## 📄 License
 
-MIT
+This project is licensed under the MIT License - see the LICENSE file for details.
 
 ## Segment Preview Fix
 

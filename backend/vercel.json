@@ -3,13 +3,6 @@
   "builds": [{ "src": "src/app.js", "use": "@vercel/node" }],
   "routes": [{ "src": "/(.*)", "dest": "src/app.js" }],
   "env": {
-    "NODE_ENV": "production",
-    "FRONTEND_URL": "https://your-frontend-url.vercel.app"
-  },
-  "functions": {
-    "src/app.js": {
-      "memory": 1024,
-      "maxDuration": 10
-    }
+    "NODE_ENV": "production"
   }
 }

@@ -6,13 +6,14 @@
   "scripts": {
     "start": "node src/app.js",
     "dev": "nodemon src/app.js",
-    "consumer": "node src/services/streamConsumer.js",
+    "consumer": "node startStreamConsumer.js",
     "dev:full": "concurrently \"npm run dev\" \"npm run consumer\"",
     "start:full": "concurrently \"npm run start\" \"npm run consumer\"",
     "reset:db": "node src/utils/clearDatabase.js",
     "reset:redis": "node src/services/resetStreams.js",
     "reset:consumer-groups": "node src/services/resetConsumerGroups.js",
-    "reset:all": "concurrently \"node src/utils/clearDatabase.js\" \"node src/services/resetStreams.js\" \"node src/services/resetConsumerGroups.js\""
+    "reset:all": "concurrently \"node src/utils/clearDatabase.js\" \"node src/services/resetStreams.js\" \"node src/services/resetConsumerGroups.js\"",
+    "vercel-build": "echo 'Building backend for Vercel'"
   },
   "dependencies": {
     "@azure-rest/ai-inference": "^1.0.0-beta.6",
@@ -35,5 +36,8 @@
   "devDependencies": {
     "concurrently": "^8.2.2",
     "nodemon": "^3.0.3"
+  },
+  "engines": {
+    "node": ">=18.0.0"
   }
 }

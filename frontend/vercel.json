@@ -7,5 +7,12 @@
     { "src": "/assets/(.*)", "dest": "/assets/$1" },
     { "src": "/favicon.ico", "dest": "/favicon.ico" },
     { "src": "/(.*)", "dest": "/index.html" }
-  ]
+  ],
+  "env": {
+    "VITE_PROD_API_BASE_URL": "https://your-backend-url.vercel.app",
+    "VITE_NODE_ENV": "production"
+  },
+  "github": {
+    "silent": true
+  }
 }

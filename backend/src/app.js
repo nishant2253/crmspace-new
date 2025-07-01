@@ -35,9 +35,9 @@ app.use(express.urlencoded({ extended: true, limit: "50mb" }));
 app.use(
   cors({
     origin: [
-      process.env.FRONTEND_URL || "https://crmspace-frontend.onrender.com",
+      process.env.FRONTEND_URL || "https://crmspace-frontend.vercel.app",
       "http://localhost:5173", // For local development
-      "https://crmspace-frontend.onrender.com", // Explicitly add production frontend URL
+      "https://crmspace-frontend.vercel.app", // Explicitly add production frontend URL
     ],
     credentials: true,
     methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],

@@ -12,22 +12,46 @@ router.get(
 // Google OAuth callback
 router.get(
   "/google/callback",
-  passport.authenticate("google", {
-    failureRedirect: process.env.FRONTEND_URL || "http://localhost:5173",
-    session: true,
-  }),
-  (req, res) => {
-    // Log successful authentication
-    console.log("Google authentication successful for user:", req.user.email);
+  (req, res, next) => {
+    console.log(
+      "Google callback received with code:",
+      req.query.code ? "present" : "missing"
+    );
+    console.log("Session exists:", !!req.session);
+    console.log("Session ID:", req.sessionID);
 
-    // Make sure session is saved before redirecting
-    req.session.save((err) => {
-      if (err) {
-        console.error("Session save error:", err);
-      }
-      // Redirect to frontend after login
-      res.redirect(process.env.FRONTEND_URL || "http://localhost:5173");
-    });
+    passport.authenticate("google", {
+      failureRedirect: process.env.FRONTEND_URL || "http://localhost:5173",
+      session: true,
+    })(req, res, next);
+  },
+  (req, res) => {
+    try {
+      // Log successful authentication
+      console.log(
+        "Google authentication successful for user:",
+        req.user?.email || "unknown"
+      );
+      console.log("User object:", JSON.stringify(req.user));
+
+      // Make sure session is saved before redirecting
+      req.session.save((err) => {
+        if (err) {
+          console.error("Session save error:", err);
+          return res
+            .status(500)
+            .json({ error: "Session save failed", details: err.message });
+        }
+        // Redirect to frontend after login
+        res.redirect(process.env.FRONTEND_URL || "http://localhost:5173");
+      });
+    } catch (error) {
+      console.error("Google callback error:", error);
+      res.status(500).json({
+        error: "Authentication callback failed",
+        details: error.message,
+      });
+    }
   }
 );
 

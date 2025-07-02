@@ -88,6 +88,70 @@ This ensures the frontend knows the correct API URL when deployed to Vercel.
    - Add your Vercel domain to Authorized JavaScript origins: `https://<your-vercel-domain>`
    - Add your callback URL to Authorized redirect URIs: `https://<your-vercel-domain>/auth/google/callback`
 
+### Google OAuth Troubleshooting
+
+If you encounter 500 Internal Server Error during Google authentication callback:
+
+1. **Verify Authorized Redirect URIs**
+
+   - Ensure the callback URL in Google Cloud Console **exactly** matches your Vercel domain:
+
+   ```
+   https://crmspace-backend.vercel.app/auth/google/callback
+   ```
+
+   - No trailing slashes, and the domain must match exactly what's in the browser URL
+
+2. **Check Environment Variables**
+
+   - Verify these variables in Vercel project settings:
+
+   ```
+   GOOGLE_CLIENT_ID=your_client_id
+   GOOGLE_CLIENT_SECRET=your_client_secret
+   GOOGLE_CALLBACK_URL=https://crmspace-backend.vercel.app/auth/google/callback
+   ```
+
+   - Make sure there are no typos or extra spaces
+
+3. **Enable Proxy Support**
+
+   - Vercel uses proxies, so your Google Strategy should include:
+
+   ```javascript
+   passport.use(
+     new GoogleStrategy(
+       {
+         clientID: GOOGLE_CLIENT_ID,
+         clientSecret: GOOGLE_CLIENT_SECRET,
+         callbackURL: GOOGLE_CALLBACK_URL,
+         proxy: true, // Important for Vercel deployments
+       },
+       callback
+     )
+   );
+   ```
+
+4. **Check MongoDB Connection**
+
+   - The Google callback needs to save user data to MongoDB
+   - Verify your MongoDB connection is working in the diagnostic endpoint
+
+5. **Session Configuration**
+
+   - Ensure Redis is properly configured for session storage
+   - Check that SESSION_SECRET is set in environment variables
+   - Verify CORS settings include `credentials: true`
+
+6. **Review Vercel Logs**
+
+   - Check function logs in Vercel dashboard for specific error messages
+   - Look for MongoDB connection errors or session-related issues
+
+7. **Test with Enhanced Logging**
+   - Add detailed logging to your auth routes and passport configuration
+   - Redeploy and check the logs during authentication attempts
+
 ## Troubleshooting
 
 - **Check logs**: If your deployment fails, check the logs in Vercel's dashboard

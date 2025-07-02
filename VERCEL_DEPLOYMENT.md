@@ -95,6 +95,127 @@ This ensures the frontend knows the correct API URL when deployed to Vercel.
 - **CORS issues**: If you experience CORS issues, verify that your backend CORS configuration includes your Vercel domain
 - **OAuth errors**: If Google login fails, double-check your OAuth configuration in Google Cloud Console and ensure the callback URLs are correctly set
 
+## Backend Deployment Fixes
+
+### Common Backend Deployment Issues and Solutions
+
+1. **Vercel Configuration Conflicts**
+
+   - **Issue**: `functions` and `builds` properties cannot be used together in vercel.json
+   - **Solution**: Remove the `functions` property and keep the `builds` configuration
+
+2. **404 Errors on Root Path**
+
+   - **Issue**: Missing handler for the root path
+   - **Solution**: Add a root endpoint handler in app.js:
+     ```javascript
+     app.get("/", (req, res) => {
+       res.send("CRMspace Platform API");
+     });
+     ```
+
+3. **Favicon 404 Errors**
+
+   - **Issue**: Browsers automatically request favicon.ico causing 404 errors
+   - **Solution**: Add a simple favicon handler:
+     ```javascript
+     app.get("/favicon.ico", (req, res) => {
+       res.status(204).end(); // No content response
+     });
+     ```
+
+4. **Redis Connection Issues**
+
+   - **Issue**: Redis connection fails in production
+   - **Solution**:
+     - Use the correct Upstash Redis URL format: `redis://default:PASSWORD@HOSTNAME:PORT`
+     - Enable TLS for production: `tls: isProduction ? { rejectUnauthorized: false } : undefined`
+     - Make Redis client available to the app: `app.set('redisClient', redisClient);`
+
+5. **MongoDB Connection Timeout**
+   - **Issue**: MongoDB connection times out in serverless environment
+   - **Solution**: Add connection options to MongoDB URI:
+     ```
+     MONGODB_URI=mongodb+srv://<username>:<password>@<cluster>.mongodb.net/crm?retryWrites=true&w=majority&connectTimeoutMS=30000
+     ```
+
+### Diagnostic Endpoint
+
+A diagnostic endpoint was added to help troubleshoot connection issues:
+
+```javascript
+router.get("/api/diagnostic", async (req, res) => {
+  const results = {
+    timestamp: new Date(),
+    environment: process.env.NODE_ENV || "development",
+    version: "1.0.0",
+    uptime: process.uptime(),
+    systems: {},
+  };
+
+  // MongoDB status check
+  // Redis status check
+  // Session information
+
+  res.json(results);
+});
+```
+
+This endpoint provides detailed information about:
+
+- MongoDB connection status and collections
+- Redis connection details and stream information
+- Session configuration and authentication status
+
+Access this endpoint at: `https://<your-backend-url>/api/diagnostic`
+
+### Authentication Debugging
+
+Enhanced logging was added to the `/auth/me` endpoint to help troubleshoot authentication issues:
+
+```javascript
+router.get("/me", (req, res) => {
+  console.log("Auth check - isAuthenticated:", req.isAuthenticated());
+  console.log("Auth check - session exists:", !!req.session);
+  console.log("Auth check - session ID:", req.sessionID);
+
+  if (req.isAuthenticated()) {
+    console.log("Auth check - user:", req.user.email || req.user._id);
+    res.json(req.user);
+  } else {
+    console.log("Auth check - not authenticated");
+    res.status(401).json({ error: "Not authenticated" });
+  }
+});
+```
+
+### Upstash Redis Configuration
+
+For Upstash Redis to work correctly in production:
+
+1. Use the REDIS_URL environment variable with the correct format:
+
+   ```
+   REDIS_URL=redis://default:PASSWORD@HOSTNAME:PORT
+   ```
+
+2. Configure Redis client with TLS for production:
+
+   ```javascript
+   redisClient = new Redis(process.env.REDIS_URL, {
+     tls: isProduction ? { rejectUnauthorized: false } : undefined,
+     connectTimeout: 10000,
+     retryStrategy: (times) => Math.min(times * 200, 3000),
+   });
+   ```
+
+3. Make the Redis client available to the Express app:
+   ```javascript
+   app.set("redisClient", redisClient);
+   ```
+
+After implementing these fixes, the backend should work correctly on Vercel with proper Redis and MongoDB connections.
+
 ## Known Limitations
 
 - Long-running processes like the Redis stream consumer may not work well in a serverless environment

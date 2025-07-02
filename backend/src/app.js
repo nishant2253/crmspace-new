@@ -52,6 +52,11 @@ app.use(
 );
 app.use(morgan(isProduction ? "combined" : "dev"));
 
+// Root route handler to avoid 404 errors
+app.get("/", (req, res) => {
+  res.send("CRMspace Platform API");
+});
+
 // Redis client setup (with fallback to memory store if Redis is not available)
 let redisClient = null;
 let sessionStore = null;

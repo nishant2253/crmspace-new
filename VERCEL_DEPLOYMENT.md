@@ -200,7 +200,7 @@ If you encounter 500 Internal Server Error during Google authentication callback
    - **Issue**: MongoDB connection times out in serverless environment
    - **Solution**: Add connection options to MongoDB URI:
      ```
-     MONGODB_URI=mongodb+srv://<username>:<password>@<cluster>.mongodb.net/crm?retryWrites=true&w=majority&connectTimeoutMS=30000
+     MONGODB_URI=mongodb+srv://<username>:<password>@<cluster>.mongodb.net/crm?retryWrites=true&w=majority&connectTimeoutMS=30000&socketTimeoutMS=45000&maxPoolSize=10&serverSelectionTimeoutMS=15000
      ```
 
 ### Diagnostic Endpoint
@@ -291,3 +291,49 @@ After implementing these fixes, the backend should work correctly on Vercel with
 - [Vercel Documentation](https://vercel.com/docs)
 - [MongoDB Atlas Documentation](https://docs.atlas.mongodb.com/)
 - [Upstash Redis Documentation](https://docs.upstash.com/redis)
+
+# MongoDB Connection Timeout Issues
+
+If you encounter MongoDB connection timeout errors like:
+
+```
+MongooseError: Operation `users.findOne()` buffering timed out after 10000ms
+```
+
+Follow these steps to resolve the issue:
+
+1. **Update MongoDB URI Format**
+
+   Use this format for your MongoDB Atlas connection string in Vercel environment variables:
+
+   ```
+   MONGODB_URI=mongodb+srv://<username>:<password>@<cluster>.mongodb.net/crm?retryWrites=true&w=majority&connectTimeoutMS=30000&socketTimeoutMS=45000&maxPoolSize=10&serverSelectionTimeoutMS=15000
+   ```
+
+   These options optimize MongoDB connections for serverless environments:
+
+   - `retryWrites=true`: Automatically retry write operations
+   - `connectTimeoutMS=30000`: Increase connection timeout to 30 seconds
+   - `socketTimeoutMS=45000`: Increase socket timeout to 45 seconds
+   - `maxPoolSize=10`: Limit connection pool size for serverless functions
+   - `serverSelectionTimeoutMS=15000`: Faster failure if server selection fails
+
+2. **Verify Network Access in MongoDB Atlas**
+
+   - Go to MongoDB Atlas dashboard
+   - Navigate to Network Access
+   - Add `0.0.0.0/0` to IP Access List to allow connections from anywhere
+   - Or add Vercel's IP ranges if you know them
+
+3. **Check Database User Permissions**
+
+   - Ensure your database user has readWrite permissions
+   - Verify username and password are correct in connection string
+
+4. **Monitor Connection Status**
+
+   - Use the `/api/diagnostic` endpoint to check MongoDB connection status
+   - Look for connection errors in Vercel function logs
+
+5. **Consider Connection Pooling**
+   - For production apps with high traffic, consider using a connection pooling service like MongoDB Atlas Data API or a similar service

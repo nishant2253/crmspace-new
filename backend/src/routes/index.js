@@ -10,6 +10,7 @@ import aiRouter from "./ai.js";
 import testRouter from "./test.js";
 import mongoose from "mongoose";
 import { createClient } from "redis";
+import { checkMongoConnection } from "../config/database.js";
 
 const router = express.Router();
 
@@ -41,21 +42,15 @@ router.get("/api/diagnostic", async (req, res) => {
 
   // Test MongoDB
   try {
-    const mongoStatus = mongoose.connection.readyState;
-    const stateMap = {
-      0: "disconnected",
-      1: "connected",
-      2: "connecting",
-      3: "disconnecting",
-    };
+    const mongoStatus = checkMongoConnection();
     results.systems.mongodb = {
-      status: stateMap[mongoStatus] || "unknown",
+      status: mongoStatus.status,
+      readyState: mongoStatus.readyState,
       uri: process.env.MONGODB_URI ? "configured" : "not configured",
-      readyState: mongoStatus,
     };
 
     // Add collection names if connected
-    if (mongoStatus === 1) {
+    if (mongoStatus.readyState === 1) {
       try {
         const collections = await mongoose.connection.db
           .listCollections()

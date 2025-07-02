@@ -337,3 +337,109 @@ Follow these steps to resolve the issue:
 
 5. **Consider Connection Pooling**
    - For production apps with high traffic, consider using a connection pooling service like MongoDB Atlas Data API or a similar service
+
+# Cross-Domain Authentication Issues
+
+If you encounter authentication issues where the session exists but the user is not authenticated:
+
+```
+Auth check - isAuthenticated: false
+Auth check - session exists: true
+Auth check - session ID: MJ2YfSpeFNpPlWBQLIaGzwEY3tVyQHxH
+Auth check - not authenticated
+```
+
+This is typically caused by cross-domain cookie issues between your frontend and backend domains. Follow these steps to resolve:
+
+1. **Update Session Configuration**
+
+   Ensure your session configuration in `app.js` has these settings:
+
+   ```javascript
+   const sessionOptions = {
+     secret: process.env.SESSION_SECRET || "secret",
+     resave: false,
+     saveUninitialized: false,
+     proxy: true, // Required for Vercel which uses proxies
+     cookie: {
+       secure: isProduction, // Use secure cookies in production
+       httpOnly: true,
+       sameSite: isProduction ? "none" : "lax", // Critical for cross-domain cookies
+       maxAge: 24 * 60 * 60 * 1000, // 24 hours
+     },
+     rolling: true,
+   };
+   ```
+
+2. **Configure CORS Properly**
+
+   Ensure CORS is configured to allow credentials:
+
+   ```javascript
+   app.use(
+     cors({
+       origin: [
+         process.env.FRONTEND_URL || "https://crmspace-frontend.vercel.app",
+         "http://localhost:5173",
+       ],
+       credentials: true, // Critical for cookies/authentication
+       methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+       allowedHeaders: [
+         "Content-Type",
+         "Authorization",
+         "X-Requested-With",
+         "Accept",
+       ],
+       exposedHeaders: ["Set-Cookie"],
+     })
+   );
+   ```
+
+3. **Set Frontend Environment Variables**
+
+   Make sure your frontend has the correct API URL:
+
+   ```
+   VITE_PROD_API_BASE_URL=https://crmspace-backend.vercel.app
+   ```
+
+4. **Configure Frontend API Client**
+
+   Ensure your API client includes credentials:
+
+   ```javascript
+   const api = axios.create({
+     baseURL: API_BASE_URL,
+     withCredentials: true, // Required for cross-domain cookies
+   });
+   ```
+
+5. **Enable Proxy in Passport Google Strategy**
+
+   For Google OAuth to work with Vercel:
+
+   ```javascript
+   passport.use(
+     new GoogleStrategy(
+       {
+         clientID: GOOGLE_CLIENT_ID,
+         clientSecret: GOOGLE_CLIENT_SECRET,
+         callbackURL: GOOGLE_CALLBACK_URL,
+         proxy: true, // Important for Vercel deployments
+       },
+       callback
+     )
+   );
+   ```
+
+6. **Test Authentication Flow**
+
+   - Use the browser's developer tools to check if cookies are being set
+   - Look for CORS errors in the console
+   - Check if the session cookie has the correct domain
+   - Verify the SameSite attribute is set to "none" for cross-domain cookies
+
+7. **Vercel-Specific Settings**
+
+   - Ensure both frontend and backend have the same domain (e.g., vercel.app)
+   - Consider using a custom domain to avoid third-party cookie restrictions

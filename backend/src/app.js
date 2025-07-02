@@ -32,14 +32,19 @@ const isProduction = process.env.NODE_ENV === "production";
 // Middleware
 app.use(express.json({ limit: "50mb" }));
 app.use(express.urlencoded({ extended: true, limit: "50mb" }));
+
+// Enhanced CORS configuration for cross-domain authentication
+const frontendUrl = process.env.FRONTEND_URL || "http://localhost:5173";
+console.log("Setting up CORS with frontend URL:", frontendUrl);
+
 app.use(
   cors({
     origin: [
-      process.env.FRONTEND_URL || "https://crmspace-frontend.vercel.app",
-      "http://localhost:5173", // For local development
+      frontendUrl,
       "https://crmspace-frontend.vercel.app", // Explicitly add production frontend URL
+      "http://localhost:5173", // For local development
     ],
-    credentials: true,
+    credentials: true, // Critical for cookies/authentication
     methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
     allowedHeaders: [
       "Content-Type",
@@ -555,12 +560,16 @@ async function setupApp() {
     rolling: true,
   };
 
-  // Only set domain in production if needed
-  if (isProduction) {
-    // Don't set domain - let the browser handle it
-    // This is more compatible with different hosting providers
-    console.log("Using production cookie settings");
-  }
+  // Log session configuration (without exposing secrets)
+  console.log("Session configuration:", {
+    store: redisConnected ? "Redis" : "Memory",
+    cookie: {
+      secure: sessionOptions.cookie.secure,
+      sameSite: sessionOptions.cookie.sameSite,
+      httpOnly: sessionOptions.cookie.httpOnly,
+    },
+    proxy: sessionOptions.proxy,
+  });
 
   app.use(session(sessionOptions));
 

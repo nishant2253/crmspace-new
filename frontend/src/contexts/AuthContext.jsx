@@ -7,15 +7,53 @@ const AuthContext = createContext();
 export function AuthProvider({ children }) {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [authError, setAuthError] = useState(null);
   const navigate = useNavigate();
   const location = useLocation();
 
-  // Fetch user on mount
+  // Fetch user on mount with retry logic
   useEffect(() => {
-    getCurrentUser()
-      .then(setUser)
-      .catch(() => setUser(null))
-      .finally(() => setLoading(false));
+    let isMounted = true;
+    let retryCount = 0;
+    const maxRetries = 2;
+
+    const checkAuth = async () => {
+      try {
+        console.log("Checking authentication status...");
+        const userData = await getCurrentUser();
+        if (isMounted) {
+          console.log("Authentication successful:", userData);
+          setUser(userData);
+          setAuthError(null);
+        }
+      } catch (error) {
+        console.error("Authentication check failed:", error);
+        if (isMounted) {
+          setUser(null);
+          setAuthError(error.message || "Authentication failed");
+
+          // Retry authentication if we haven't reached max retries
+          if (retryCount < maxRetries) {
+            retryCount++;
+            console.log(
+              `Retrying authentication (${retryCount}/${maxRetries})...`
+            );
+            setTimeout(checkAuth, 1000); // Wait 1 second before retrying
+            return;
+          }
+        }
+      } finally {
+        if (isMounted) {
+          setLoading(false);
+        }
+      }
+    };
+
+    checkAuth();
+
+    return () => {
+      isMounted = false;
+    };
   }, []);
 
   // Improved logout: clear user, redirect, handle errors
@@ -43,6 +81,7 @@ export function AuthProvider({ children }) {
   // Set guest user directly without reloading
   const setGuestUser = (guestUser) => {
     setUser(guestUser);
+    setAuthError(null);
     navigate("/dashboard", { replace: true });
   };
 
@@ -53,6 +92,7 @@ export function AuthProvider({ children }) {
       location.pathname === "/get-started" || location.pathname === "/login";
 
     if (!loading && !user && !isPublicRoute) {
+      console.log("No authenticated user, redirecting to login");
       navigate("/login", { replace: true });
     }
   }, [user, loading, navigate, location.pathname]);
@@ -62,7 +102,15 @@ export function AuthProvider({ children }) {
 
   return (
     <AuthContext.Provider
-      value={{ user, loading, logout, isGuestUser, setUser, setGuestUser }}
+      value={{
+        user,
+        loading,
+        logout,
+        isGuestUser,
+        setUser,
+        setGuestUser,
+        authError,
+      }}
     >
       {children}
     </AuthContext.Provider>

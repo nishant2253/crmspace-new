@@ -29,14 +29,16 @@ export function initPassport() {
         clientSecret: GOOGLE_CLIENT_SECRET,
         callbackURL: GOOGLE_CALLBACK_URL,
         proxy: true, // Important for Vercel deployments behind proxies
+        passReqToCallback: true, // Pass request to callback for additional context
       },
-      async (accessToken, refreshToken, profile, done) => {
+      async (req, accessToken, refreshToken, profile, done) => {
         try {
           console.log(
             "Google profile received:",
             profile.id,
             profile.displayName
           );
+          console.log("Session ID in OAuth callback:", req.sessionID);
 
           let user = await User.findOne({ googleId: profile.id });
           if (!user) {

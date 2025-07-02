@@ -34,6 +34,8 @@ router.get("/api/diagnostic", async (req, res) => {
   const results = {
     timestamp: new Date(),
     environment: process.env.NODE_ENV || "development",
+    version: "1.0.0",
+    uptime: process.uptime(),
     systems: {},
   };
 
@@ -49,7 +51,20 @@ router.get("/api/diagnostic", async (req, res) => {
     results.systems.mongodb = {
       status: stateMap[mongoStatus] || "unknown",
       uri: process.env.MONGODB_URI ? "configured" : "not configured",
+      readyState: mongoStatus,
     };
+
+    // Add collection names if connected
+    if (mongoStatus === 1) {
+      try {
+        const collections = await mongoose.connection.db
+          .listCollections()
+          .toArray();
+        results.systems.mongodb.collections = collections.map((c) => c.name);
+      } catch (err) {
+        results.systems.mongodb.collections = { error: err.message };
+      }
+    }
   } catch (err) {
     results.systems.mongodb = { status: "error", message: err.message };
   }
@@ -63,7 +78,47 @@ router.get("/api/diagnostic", async (req, res) => {
       url: process.env.REDIS_URL ? "configured" : "not configured",
     };
 
-    if (redisEnabled) {
+    // Get Redis client from app
+    const redisClient = req.app.get("redisClient");
+    if (redisClient) {
+      results.systems.redis.clientStatus = "available";
+      results.systems.redis.status = "connected";
+
+      try {
+        const pingResult = await redisClient.ping();
+        results.systems.redis.ping = pingResult;
+
+        // Check streams
+        try {
+          const customerStreamInfo = await redisClient.xinfo(
+            "STREAM",
+            "customer_ingest"
+          );
+          results.systems.redis.streams = {
+            customer_ingest: {
+              length: customerStreamInfo[1][1],
+              groups: await redisClient.xinfo("GROUPS", "customer_ingest"),
+            },
+          };
+
+          const orderStreamInfo = await redisClient.xinfo(
+            "STREAM",
+            "order_ingest"
+          );
+          results.systems.redis.streams.order_ingest = {
+            length: orderStreamInfo[1][1],
+            groups: await redisClient.xinfo("GROUPS", "order_ingest"),
+          };
+        } catch (streamErr) {
+          results.systems.redis.streams = { error: streamErr.message };
+        }
+      } catch (pingErr) {
+        results.systems.redis.ping = { error: pingErr.message };
+      }
+    } else if (redisEnabled) {
+      results.systems.redis.clientStatus = "not available";
+
+      // Try to create a test connection
       try {
         const testClient = createClient({
           url:
@@ -72,10 +127,13 @@ router.get("/api/diagnostic", async (req, res) => {
         });
         await testClient.connect();
         const pingResult = await testClient.ping();
-        results.systems.redis.ping = pingResult;
+        results.systems.redis.testConnection = {
+          status: "success",
+          ping: pingResult,
+        };
         await testClient.disconnect();
       } catch (redisErr) {
-        results.systems.redis.connectionTest = {
+        results.systems.redis.testConnection = {
           status: "error",
           message: redisErr.message,
         };
@@ -84,6 +142,15 @@ router.get("/api/diagnostic", async (req, res) => {
   } catch (err) {
     results.systems.redis = { status: "error", message: err.message };
   }
+
+  // Add session info
+  results.session = {
+    configured: !!req.session,
+    id: req.sessionID || "not available",
+    authenticated: req.isAuthenticated
+      ? req.isAuthenticated()
+      : "function not available",
+  };
 
   res.json(results);
 });

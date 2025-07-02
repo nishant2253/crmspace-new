@@ -83,10 +83,15 @@ router.get("/logout", (req, res) => {
 
 // Get current user
 router.get("/me", (req, res) => {
-  // Remove excessive logging
+  console.log("Auth check - isAuthenticated:", req.isAuthenticated());
+  console.log("Auth check - session exists:", !!req.session);
+  console.log("Auth check - session ID:", req.sessionID);
+
   if (req.isAuthenticated()) {
+    console.log("Auth check - user:", req.user.email || req.user._id);
     res.json(req.user);
   } else {
+    console.log("Auth check - not authenticated");
     res.status(401).json({ error: "Not authenticated" });
   }
 });

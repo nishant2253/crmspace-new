@@ -57,6 +57,11 @@ app.get("/", (req, res) => {
   res.send("CRMspace Platform API");
 });
 
+// Handle favicon requests to avoid 404 errors
+app.get("/favicon.ico", (req, res) => {
+  res.status(204).end(); // No content response
+});
+
 // Redis client setup (with fallback to memory store if Redis is not available)
 let redisClient = null;
 let sessionStore = null;
@@ -144,6 +149,9 @@ async function setupRedis() {
 
     await Promise.race([pingPromise, timeoutPromise]);
     console.log("Redis connected successfully");
+
+    // Make Redis client available to the app
+    app.set("redisClient", redisClient);
 
     // Create Redis store for session
     sessionStore = new RedisStore({ client: redisClient });

@@ -32,19 +32,14 @@ const isProduction = process.env.NODE_ENV === "production";
 // Middleware
 app.use(express.json({ limit: "50mb" }));
 app.use(express.urlencoded({ extended: true, limit: "50mb" }));
-
-// Enhanced CORS configuration for cross-domain authentication
-const frontendUrl = process.env.FRONTEND_URL || "http://localhost:5173";
-console.log("Setting up CORS with frontend URL:", frontendUrl);
-
 app.use(
   cors({
     origin: [
-      frontendUrl,
-      "https://crmspace-frontend.vercel.app", // Explicitly add production frontend URL
+      process.env.FRONTEND_URL || "https://crmspace-frontend.vercel.app",
       "http://localhost:5173", // For local development
+      "https://crmspace-frontend.vercel.app", // Explicitly add production frontend URL
     ],
-    credentials: true, // Critical for cookies/authentication
+    credentials: true,
     methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
     allowedHeaders: [
       "Content-Type",
@@ -57,46 +52,9 @@ app.use(
 );
 app.use(morgan(isProduction ? "combined" : "dev"));
 
-// Debug middleware to log all requests
-app.use((req, res, next) => {
-  console.log(`[DEBUG] ${req.method} ${req.path}`);
-  console.log(
-    `[DEBUG] Headers: ${JSON.stringify({
-      origin: req.headers.origin,
-      referer: req.headers.referer,
-      cookie: req.headers.cookie ? "present" : "absent",
-    })}`
-  );
-  console.log(`[DEBUG] Session: ${req.sessionID || "no session"}`);
-  next();
-});
-
 // Root route handler to avoid 404 errors
 app.get("/", (req, res) => {
   res.send("CRMspace Platform API");
-});
-
-// Add direct auth routes for testing
-app.get("/auth-test", (req, res) => {
-  res.json({
-    message: "Auth test route working",
-    session: !!req.session,
-    sessionID: req.sessionID,
-    isAuthenticated: req.isAuthenticated
-      ? req.isAuthenticated()
-      : "function not available",
-  });
-});
-
-app.get("/auth/test", (req, res) => {
-  res.json({
-    message: "Auth nested test route working",
-    session: !!req.session,
-    sessionID: req.sessionID,
-    isAuthenticated: req.isAuthenticated
-      ? req.isAuthenticated()
-      : "function not available",
-  });
 });
 
 // Handle favicon requests to avoid 404 errors
@@ -590,23 +548,19 @@ async function setupApp() {
     cookie: {
       secure: isProduction, // Use secure cookies in production
       httpOnly: true,
-      sameSite: "none", // Always use "none" for cross-domain in production
+      sameSite: isProduction ? "none" : "lax", // For cross-site cookies in production
       maxAge: 24 * 60 * 60 * 1000, // 24 hours
     },
     // Add rolling: true to extend session on each request
     rolling: true,
   };
 
-  // Log session configuration (without exposing secrets)
-  console.log("Session configuration:", {
-    store: redisConnected ? "Redis" : "Memory",
-    cookie: {
-      secure: sessionOptions.cookie.secure,
-      sameSite: sessionOptions.cookie.sameSite,
-      httpOnly: sessionOptions.cookie.httpOnly,
-    },
-    proxy: sessionOptions.proxy,
-  });
+  // Only set domain in production if needed
+  if (isProduction) {
+    // Don't set domain - let the browser handle it
+    // This is more compatible with different hosting providers
+    console.log("Using production cookie settings");
+  }
 
   app.use(session(sessionOptions));
 
@@ -665,17 +619,6 @@ async function setupApp() {
   );
 
   app.use(router);
-
-  // Add catch-all route to handle 404s
-  app.use((req, res) => {
-    console.log(`404 Not Found: ${req.method} ${req.path}`);
-    res.status(404).json({
-      error: "Not Found",
-      path: req.path,
-      method: req.method,
-      timestamp: new Date(),
-    });
-  });
 
   const PORT = process.env.PORT || 5003;
   if (process.env.NODE_ENV !== "test") {

@@ -4,23 +4,15 @@ import axios from "axios";
 // In development, use the localhost URL
 const isProd = import.meta.env.PROD;
 const API_BASE_URL = isProd
-  ? import.meta.env.VITE_PROD_API_BASE_URL ||
-    "https://crmspace-backend.vercel.app"
+  ? import.meta.env.VITE_PROD_API_BASE_URL || "https://crmspace-new.vercel.app"
   : import.meta.env.VITE_API_BASE_URL || "http://localhost:5003";
-
-console.log("API Service initialized with base URL:", API_BASE_URL);
 
 const api = axios.create({
   baseURL: API_BASE_URL,
   withCredentials: true, // send cookies for session auth
-  headers: {
-    "Content-Type": "application/json",
-    Accept: "application/json",
-  },
 });
 
 export const loginWithGoogle = () => {
-  console.log("Redirecting to Google login at:", `${API_BASE_URL}/auth/google`);
   window.location.href = `${API_BASE_URL}/auth/google`;
 };
 
@@ -57,19 +49,8 @@ export const logout = async () => {
 };
 
 export const getCurrentUser = async () => {
-  try {
-    console.log("Checking current user authentication");
-    const res = await api.get("/auth/me");
-    console.log("Current user:", res.data);
-    return res.data;
-  } catch (error) {
-    console.error(
-      "Authentication check failed:",
-      error.response?.status,
-      error.message
-    );
-    throw error;
-  }
+  const res = await api.get("/auth/me");
+  return res.data;
 };
 
 export const apiGet = async (url) => {

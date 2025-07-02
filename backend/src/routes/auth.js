@@ -58,12 +58,6 @@ router.get(
 // Guest login - creates a guest user session
 router.get("/guest", (req, res) => {
   try {
-    console.log("Guest login attempt - session ID:", req.sessionID);
-    console.log(
-      "Guest login - cookies:",
-      req.headers.cookie ? "present" : "missing"
-    );
-
     // Create a simplified guest user object with timestamp
     const timestamp = Date.now();
     const guestUser = {
@@ -77,16 +71,8 @@ router.get("/guest", (req, res) => {
     // Set user in session directly
     req.session.passport = { user: guestUser };
 
-    // Explicitly save the session to ensure it's stored
-    req.session.save((err) => {
-      if (err) {
-        console.error("Guest login - session save error:", err);
-        return res.status(500).json({ error: "Failed to save guest session" });
-      }
-
-      console.log("Guest login successful - new session ID:", req.sessionID);
-      res.status(200).json({ success: true, user: guestUser });
-    });
+    // Return success immediately without saving session
+    res.status(200).json({ success: true, user: guestUser });
   } catch (error) {
     console.error("Guest login error:", error);
     res.status(500).json({ error: "Failed to login as guest" });
@@ -125,32 +111,12 @@ router.get("/me", (req, res) => {
   console.log("Auth check - session exists:", !!req.session);
   console.log("Auth check - session ID:", req.sessionID);
 
-  // Check if the request has cookies
-  console.log(
-    "Auth check - cookies:",
-    req.headers.cookie ? "present" : "missing"
-  );
-
-  // Check for specific headers that might affect CORS
-  console.log("Auth check - origin:", req.headers.origin || "not set");
-  console.log("Auth check - referer:", req.headers.referer || "not set");
-
   if (req.isAuthenticated()) {
     console.log("Auth check - user:", req.user.email || req.user._id);
     res.json(req.user);
   } else {
     console.log("Auth check - not authenticated");
-
-    // Check if there's a session but no user (broken session)
-    if (req.session && req.sessionID) {
-      console.log("Auth check - session exists but no user");
-    }
-
-    res.status(401).json({
-      error: "Not authenticated",
-      sessionExists: !!req.session,
-      cookiesPresent: !!req.headers.cookie,
-    });
+    res.status(401).json({ error: "Not authenticated" });
   }
 });
 

@@ -52,6 +52,133 @@ VITE_PROD_API_BASE_URL=https://<your-vercel-domain>
 
 This ensures the frontend knows the correct API URL when deployed to Vercel.
 
+## Recent Configuration Changes
+
+### vercel.json Updates
+
+We simplified the Vercel configuration to use a single route handler for all paths:
+
+```json
+{
+  "version": 2,
+  "builds": [
+    {
+      "src": "src/app.js",
+      "use": "@vercel/node",
+      "config": {
+        "maxDuration": 30
+      }
+    }
+  ],
+  "routes": [
+    {
+      "src": "/(.*)",
+      "dest": "src/app.js",
+      "headers": {
+        "Access-Control-Allow-Credentials": "true",
+        "Access-Control-Allow-Origin": "*",
+        "Access-Control-Allow-Methods": "GET,OPTIONS,PATCH,DELETE,POST,PUT",
+        "Access-Control-Allow-Headers": "X-CSRF-Token, X-Requested-With, Accept, Accept-Version, Content-Length, Content-MD5, Content-Type, Date, X-Api-Version, Authorization"
+      }
+    }
+  ],
+  "env": {
+    "NODE_ENV": "production"
+  }
+}
+```
+
+This configuration:
+
+- Routes all requests to app.js
+- Sets up CORS headers for all routes
+- Ensures proper handling of authentication headers
+
+### app.js Updates
+
+Several changes were made to improve routing and debugging:
+
+1. **Debug Routes Added**:
+
+```javascript
+// Test routes to verify routing
+app.get("/auth-test", (req, res) => {
+  res.json({
+    message: "Auth test route working",
+    session: !!req.session,
+    sessionID: req.sessionID,
+    isAuthenticated: req.isAuthenticated
+      ? req.isAuthenticated()
+      : "function not available",
+  });
+});
+
+app.get("/auth/test", (req, res) => {
+  res.json({
+    message: "Auth nested test route working",
+    session: !!req.session,
+    sessionID: req.sessionID,
+    isAuthenticated: req.isAuthenticated
+      ? req.isAuthenticated()
+      : "function not available",
+  });
+});
+```
+
+2. **Debug Middleware**:
+
+```javascript
+app.use((req, res, next) => {
+  console.log(`[DEBUG] ${req.method} ${req.path}`);
+  console.log(
+    `[DEBUG] Headers: ${JSON.stringify({
+      origin: req.headers.origin,
+      referer: req.headers.referer,
+      cookie: req.headers.cookie ? "present" : "absent",
+    })}`
+  );
+  console.log(`[DEBUG] Session: ${req.sessionID || "no session"}`);
+  next();
+});
+```
+
+3. **Session Configuration**:
+
+```javascript
+const sessionOptions = {
+  cookie: {
+    secure: isProduction,
+    httpOnly: true,
+    sameSite: "none", // Always use "none" for cross-domain in production
+    maxAge: 24 * 60 * 60 * 1000, // 24 hours
+  },
+  proxy: true,
+};
+```
+
+4. **404 Handler**:
+
+```javascript
+app.use((req, res) => {
+  console.log(`404 Not Found: ${req.method} ${req.path}`);
+  res.status(404).json({
+    error: "Not Found",
+    path: req.path,
+    method: req.method,
+    timestamp: new Date(),
+  });
+});
+```
+
+## Testing the Changes
+
+After deploying these changes, test the following endpoints:
+
+1. `https://your-backend.vercel.app/auth-test`
+2. `https://your-backend.vercel.app/auth/test`
+
+These endpoints should return session information and help diagnose any routing issues.
+
 ## Deployment Steps
 
 1. **Push your repository to GitHub**

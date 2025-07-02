@@ -57,9 +57,46 @@ app.use(
 );
 app.use(morgan(isProduction ? "combined" : "dev"));
 
+// Debug middleware to log all requests
+app.use((req, res, next) => {
+  console.log(`[DEBUG] ${req.method} ${req.path}`);
+  console.log(
+    `[DEBUG] Headers: ${JSON.stringify({
+      origin: req.headers.origin,
+      referer: req.headers.referer,
+      cookie: req.headers.cookie ? "present" : "absent",
+    })}`
+  );
+  console.log(`[DEBUG] Session: ${req.sessionID || "no session"}`);
+  next();
+});
+
 // Root route handler to avoid 404 errors
 app.get("/", (req, res) => {
   res.send("CRMspace Platform API");
+});
+
+// Add direct auth routes for testing
+app.get("/auth-test", (req, res) => {
+  res.json({
+    message: "Auth test route working",
+    session: !!req.session,
+    sessionID: req.sessionID,
+    isAuthenticated: req.isAuthenticated
+      ? req.isAuthenticated()
+      : "function not available",
+  });
+});
+
+app.get("/auth/test", (req, res) => {
+  res.json({
+    message: "Auth nested test route working",
+    session: !!req.session,
+    sessionID: req.sessionID,
+    isAuthenticated: req.isAuthenticated
+      ? req.isAuthenticated()
+      : "function not available",
+  });
 });
 
 // Handle favicon requests to avoid 404 errors
@@ -553,7 +590,7 @@ async function setupApp() {
     cookie: {
       secure: isProduction, // Use secure cookies in production
       httpOnly: true,
-      sameSite: isProduction ? "none" : "lax", // For cross-site cookies in production
+      sameSite: "none", // Always use "none" for cross-domain in production
       maxAge: 24 * 60 * 60 * 1000, // 24 hours
     },
     // Add rolling: true to extend session on each request
@@ -628,6 +665,17 @@ async function setupApp() {
   );
 
   app.use(router);
+
+  // Add catch-all route to handle 404s
+  app.use((req, res) => {
+    console.log(`404 Not Found: ${req.method} ${req.path}`);
+    res.status(404).json({
+      error: "Not Found",
+      path: req.path,
+      method: req.method,
+      timestamp: new Date(),
+    });
+  });
 
   const PORT = process.env.PORT || 5003;
   if (process.env.NODE_ENV !== "test") {
